@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mad Hat Bingo</title>
+
+    <!-- Bootstrap -->
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+    <style type="text/css">
+
+
+
+
+
+        @font-face {
+            font-family: "architectsDaughter";
+            src: url(/fonts/architects-daughter.ttf);
+        }
+
+        html * { font-family: "architectsDaughter" }
+
+
+
+
+    </style>
+
+
+    <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+    <script src="/bower_components/bootstrap/dist/js/bootstrap.min.js"></script>
+    <script src="/bower_components/react/react.js"></script>
+    <script src="/bower_components/react/JSXTransformer.js"></script>
+    <script src="/bower_components/reflux/dist/reflux.js"></script>
+
+
+    <script src="/app/app.js"></script>
+
+
+
+
+    <script type="text/jsx"  src="/app/page/Application.js"></script>
+    <script type="text/jsx"  src="/app/page/Landing.js"></script>
+
+    <script type="text/jsx"  src="/app/page/Register.js"></script>
+    <script type="text/jsx"  src="/app/page/Login.js"></script>
+    <script type="text/jsx"  src="/app/page/Lobby.js"></script>
+    <script type="text/jsx"  src="/app/page/Play.js"></script>
+    <script type="text/jsx"  src="/app/page/Ticket.js"></script>
+    <script type="text/jsx"  src="/app/page/GameDial.js"></script>
+    <script type="text/jsx"  src="/app/page/GameBanner.js"></script>
+
+    <script type="text/jsx"  src="/app/page/TimeLeft.js"></script>
+    <script type="text/jsx"  src="/app/page/Money.js"></script>
+
+    <script type="text/jsx"  src="/app/store/RegisterStore.js"></script>
+    <script type="text/jsx"  src="/app/store/AuthenticationStore.js"></script>
+    <script type="text/jsx"  src="/app/store/LobbyStore.js"></script>
+    <script type="text/jsx"  src="/app/store/PlayStore.js"></script>
+
+
+
+
+
+</head>
+<body>
+    <style type="text/css">
+        body { padding-top: 70px; }
+
+
+
+    </style>
+    <div id="viewport"></div>
+
+    <script type="text/jsx">
+        React.render(<Application />, $('#viewport')[0]);
+    </script>
+</div>
+
+
+
+</body>
+</html>
+
