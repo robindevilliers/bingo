@@ -21,10 +21,15 @@ public class Scheduler {
     public void run(){
 
         for (Play play : playsRepository.getCurrentPlays()){
+
+            //a game just started
             if (play.getStartTime().isBeforeNow() && play.getEndTime() == null){
+
+                //if there are no players, skip the game and start a new game.
                 if (play.getTickets().isEmpty()){
                     play.setEndTime(play.getStartTime());
                 } else {
+                    //valid game, so do a draw.
                     gameEngine.draw(play);
                 }
 

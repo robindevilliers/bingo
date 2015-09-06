@@ -16,7 +16,19 @@ public class RegisterController {
 
     @RequestMapping(method= RequestMethod.POST)
     public ResponseEntity register(@RequestBody() Register register) {
-        usersRepository.add(new User(register.getEmailAddress(), register.getUsername(), register.getPassword()));
+
+        usersRepository.add(
+                new User(
+                        register.getEmailAddress(),
+                        register.getUsername(),
+                        register.getPassword(),
+                        register.getCardNumber(),
+                        register.getCardType(),
+                        register.getExpiryDate(),
+                        register.getSecurityNumber()
+                )
+        );
+
         return new ResponseEntity(HttpStatus.NO_CONTENT);
     }
 }

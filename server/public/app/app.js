@@ -5,15 +5,16 @@ var Actions = Reflux.createActions({
     "loginSubmit":  {children: ["success","failed"]},
     "lobbyLoad":  {children: ["success","failed"]},
     "joinPlay": {children: ["success", "failed"]},
-    "playLoad": {children: ["success", "failed"]},
     "leavePlay": {},
     "anteIn": {children: ["success", "failed"]},
-    "drawNumber": {},
     "drawNumber": {},
     "gameStart": {},
     "gameEnd": {},
     "tick": {},
-
+    "topup": {},
+    "topupSubmit": {children: ["success","failed"]},
+    "playLoad": {children: ["success", "failed"]},
+    "displayLobby": {},
 });
 
 

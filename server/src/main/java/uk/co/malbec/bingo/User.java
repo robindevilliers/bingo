@@ -1,6 +1,11 @@
 package uk.co.malbec.bingo;
 
 
+import org.joda.time.DateTime;
+
+import java.util.ArrayList;
+import java.util.List;
+
 public class User {
 
     private String emailAddress;
@@ -9,12 +14,26 @@ public class User {
 
     private String password;
 
+    private String cardNumber;
+
+    private String cardType;
+
+    private String expiryDate;
+
+    private String securityNumber;
+
     private int wallet;
 
-    public User(String emailAddress, String username, String password) {
+    private List<Winnings> winningsList = new ArrayList<>();
+
+    public User(String emailAddress, String username, String password, String cardNumber, String cardType, String expiryDate, String securityNumber) {
         this.emailAddress = emailAddress;
         this.username = username;
         this.password = password;
+        this.cardNumber = cardNumber;
+        this.cardType = cardType;
+        this.expiryDate = expiryDate;
+        this.securityNumber = securityNumber;
     }
 
     public String getEmailAddress() {
@@ -43,5 +62,37 @@ public class User {
 
     public int getWallet() {
         return wallet;
+    }
+
+    public void setWallet(int wallet) {
+        this.wallet = wallet;
+    }
+
+    public String getCardNumber() {
+        return cardNumber;
+    }
+
+    public String getCardType() {
+        return cardType;
+    }
+
+    public String getExpiryDate() {
+        return expiryDate;
+    }
+
+    public String getSecurityNumber() {
+        return securityNumber;
+    }
+
+    public void addWinnings(Winnings winnings) {
+        winningsList.add(winnings);
+    }
+
+    public List<Winnings> getWinningsList(){
+        return winningsList;
+    }
+
+    public void removeWinnings(List<Winnings> resolvedWinnings) {
+        winningsList.removeAll(resolvedWinnings);
     }
 }

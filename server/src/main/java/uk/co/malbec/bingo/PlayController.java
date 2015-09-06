@@ -10,9 +10,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import javax.servlet.http.HttpSession;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Controller
 @RequestMapping("play")
@@ -36,6 +34,18 @@ public class PlayController {
 
         User user = (User) session.getAttribute("user");
 
+        //TODO - assign winnings should happen whenever a user is accessed.
+        List<Winnings> resolvedWinnings = new ArrayList();
+
+        for (Winnings winnings: user.getWinningsList()){
+            if (winnings.getDateTime().isBeforeNow()){
+                user.setWallet(user.getWallet() + winnings.getAmount());
+                resolvedWinnings.add(winnings);
+            }
+        }
+        user.removeWinnings(resolvedWinnings);
+
+
         Map<Integer, Ticket> tickets = new HashMap<>();
         for (Ticket ticket : play.getTickets()){
             if (ticket.getUsername().equals(user.getUsername())){
@@ -43,34 +53,23 @@ public class PlayController {
             }
         }
 
-        int totalTicketCount = play.getTickets().size();
-        int totalPot = totalTicketCount * play.getGame().getTicketFee();
         int yourBet = tickets.size() * play.getGame().getTicketFee();
 
-        //TODO - get these ratios right at some point.
-
-
-        /*
-        200 tickets
-        FOUR_CORNERS 53
-        ONE_LINE 95
-        TWO_LINES 18
-        FULL_HOUSE 1
-        draw count 64
-
-        100 tickets
-        FOUR_CORNERS 30
-        ONE_LINE 54
-        TWO_LINES 13
-        FULL_HOUSE 1
-        draw count 66
-         */
-        int fullHousePrize = totalPot / 2;
-        int twoLinesPrize = totalPot / 2 / 10;
-        int oneLinesPrize = totalPot / 2 / 10 / 20;
-        int fourCornersPrize = totalPot  / 2 / 10 / 20 / 20;
-
-        PlayView playView = new PlayView(user.getUsername(), play.getGame(), tickets, totalPot, play.getStartTime(), play.getEndTime(), yourBet, 4385 /*user.getWallet()*/, fullHousePrize, twoLinesPrize, oneLinesPrize, fourCornersPrize, play.getGameScript() );
+        PlayView playView = new PlayView(
+                user.getUsername(),
+                play.getGame(),
+                tickets,
+                play.getTotalPot(),
+                play.getStartTime(),
+                play.getEndTime(),
+                yourBet,
+                user.getWallet(),
+                play.getFullHousePrize(),
+                play.getTwoLinesPrize(),
+                play.getOneLinePrize(),
+                play.getFourCornersPrize(),
+                play.getGameScript()
+        );
 
         return new ResponseEntity<>(playView, HttpStatus.OK);
     }
@@ -82,11 +81,17 @@ public class PlayController {
 
         for (Map.Entry<Integer, Map<String ,Boolean>> ticket: anteIn.getTickets().entrySet()){
             if (ticket.getValue().get("selected")){
-                Ticket ticketBean  = gameEngine.generateTicket(user.getUsername(), ticket.getKey());
-                while (play.hasTicket(ticketBean.getKey())) {
-                    ticketBean  = gameEngine.generateTicket(user.getUsername(), ticket.getKey());
+                int ticketFee = play.getGame().getTicketFee();
+                if (user.getWallet() > ticketFee) {
+
+                    user.setWallet(user.getWallet() - ticketFee);
+
+                    Ticket ticketBean = gameEngine.generateTicket(user.getUsername(), ticket.getKey());
+                    while (play.hasTicket(ticketBean.getKey())) {
+                        ticketBean = gameEngine.generateTicket(user.getUsername(), ticket.getKey());
+                    }
+                    play.addTicket(ticketBean.getKey(), ticketBean);
                 }
-                play.addTicket(ticketBean.getKey(), ticketBean);
             }
         }
         return playLoad(anteIn.getGameId().toString(), session);

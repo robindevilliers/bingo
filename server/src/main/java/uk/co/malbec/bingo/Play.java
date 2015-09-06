@@ -74,4 +74,49 @@ public class Play {
     public List<Ticket> getTickets() {
         return new ArrayList<>(tickets.values());
     }
+
+
+    public int getTotalPot(){
+        int totalTicketCount = getTickets().size();
+        int totalPot = totalTicketCount * getGame().getTicketFee();
+        return totalPot;
+    }
+
+    //TODO - work out proper ratios
+    /*
+    200 tickets
+    FOUR_CORNERS 53
+    ONE_LINE 95
+    TWO_LINES 18
+    FULL_HOUSE 1
+    draw count 64
+
+    100 tickets
+    FOUR_CORNERS 30
+    ONE_LINE 54
+    TWO_LINES 13
+    FULL_HOUSE 1
+    draw count 66
+     */
+
+    public int getFullHousePrize(){
+        int fullHousePrize = getTotalPot() / 2;
+        return fullHousePrize;
+    }
+
+    public int getTwoLinesPrize(){
+        int twoLinesPrize = getTotalPot() / 2 / 10;
+        return twoLinesPrize;
+    }
+
+    public int getOneLinePrize(){
+        int oneLinesPrize = getTotalPot() / 2 / 10 / 20;
+        return oneLinesPrize;
+    }
+
+    public int getFourCornersPrize(){
+        int fourCornersPrize = getTotalPot()  / 2 / 10 / 20 / 20;
+        return fourCornersPrize;
+    }
+
 }

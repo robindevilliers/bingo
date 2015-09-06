@@ -17,8 +17,10 @@ var LobbyPage = React.createClass({
         this.setState({plays: data});
     },
     onJoin: function(e){
-
         Actions.joinPlay(e.target.id);
+    },
+    clickTopup: function(e){
+        Actions.topup();
     },
     render: function() {
 
@@ -49,6 +51,11 @@ var LobbyPage = React.createClass({
                     {tableRows}
                     </tbody>
                 </table>
+                <div className="row">
+                    <div className="col-md-1 pull-right">
+                       <button onClick={this.clickTopup}  className="btn btn-success">Topup</button>
+                    </div>
+                </div>
             </div>
         );
     }

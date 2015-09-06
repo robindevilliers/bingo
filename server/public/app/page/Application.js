@@ -1,10 +1,12 @@
 var Application = React.createClass({
     mixins: [Reflux.ListenerMixin],
     componentDidMount: function() {
-        this.listenTo(Actions.registerSubmit.success, this.onLogin);
-        this.listenTo(Actions.loginSubmit.success, this.onLogin);
+        this.listenTo(Actions.registerSubmit.success, this.onDisplayLobby);
+        this.listenTo(Actions.loginSubmit.success, this.onDisplayLobby);
         this.listenTo(Actions.joinPlay.success, this.onJoinPlay);
-        this.listenTo(Actions.leavePlay, this.onLogin);
+        this.listenTo(Actions.leavePlay, this.onDisplayLobby);
+        this.listenTo(Actions.topup, this.onTopup);
+        this.listenTo(Actions.displayLobby, this.onDisplayLobby);
     },
     getInitialState: function() {
         return {
@@ -13,7 +15,7 @@ var Application = React.createClass({
             gameId: null
         }
     },
-    onLogin: function(){
+    onDisplayLobby: function(){
         this.setState({
             currentPage: "lobby",
             loggedIn: true
@@ -23,6 +25,11 @@ var Application = React.createClass({
         this.setState({
             currentPage: "play",
             gameId: data
+        });
+    },
+    onTopup: function(){
+        this.setState({
+            currentPage: 'topup'
         });
     },
     render: function() {
@@ -38,6 +45,9 @@ var Application = React.createClass({
                 break;
             case 'play':
                 pane = <PlayPage gameId={this.state.gameId} />;
+                break;
+            case 'topup':
+                pane = <Topup/>;
                 break;
         }
 

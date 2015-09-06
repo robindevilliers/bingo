@@ -1,5 +1,6 @@
 package uk.co.malbec.bingo;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -7,9 +8,14 @@ import java.util.*;
 @Component
 public class GameEngine {
 
+    @Autowired
+    private UsersRepository usersRepository;
+
     private Random randomGenerator = new Random();
 
     public void draw(Play play) {
+
+        Game game = play.getGame();
 
         List<TicketWatcher> watchers = new ArrayList<>();
         for (Ticket ticket : play.getTickets()) {
@@ -24,6 +30,7 @@ public class GameEngine {
         Collections.shuffle(numbers, randomGenerator);
 
 
+        Map<String, Integer> winnings = new HashMap<>();
         GameScript gameScript = new GameScript();
 
         boolean endGame = false;
@@ -38,6 +45,7 @@ public class GameEngine {
                 if (watcher.hasFourCorners()) {
                     if (!watcher.hasPrize(PrizeType.FOUR_CORNERS)) {
                         draw.add(new Prize(watcher.getTicket().getUsername(), PrizeType.FOUR_CORNERS));
+                        assignWinnings(winnings, watcher.getTicket().getUsername(), play, PrizeType.FOUR_CORNERS);
                         watcher.addPrize(PrizeType.FOUR_CORNERS);
                     }
                 }
@@ -58,6 +66,7 @@ public class GameEngine {
                 if (lineCount == 1) {
                     if (!watcher.hasPrize(PrizeType.ONE_LINE)) {
                         draw.add(new Prize(watcher.getTicket().getUsername(), PrizeType.ONE_LINE));
+                        assignWinnings(winnings, watcher.getTicket().getUsername(), play, PrizeType.ONE_LINE);
                         watcher.addPrize(PrizeType.ONE_LINE);
                     }
                 }
@@ -65,12 +74,14 @@ public class GameEngine {
                 if (lineCount == 2) {
                     if (!watcher.hasPrize(PrizeType.TWO_LINES)) {
                         draw.add(new Prize(watcher.getTicket().getUsername(), PrizeType.TWO_LINES));
+                        assignWinnings(winnings, watcher.getTicket().getUsername(), play, PrizeType.TWO_LINES);
                         watcher.addPrize(PrizeType.TWO_LINES);
                     }
                 }
 
                 if (lineCount == 3) {
                     draw.add(new Prize(watcher.getTicket().getUsername(), PrizeType.FULL_HOUSE));
+                    assignWinnings(winnings, watcher.getTicket().getUsername(), play, PrizeType.FULL_HOUSE);
                     endGame = true;
                 }
 
@@ -81,7 +92,37 @@ public class GameEngine {
 
         int seconds = gameScript.getDraws().size() * 3;
         play.setEndTime(play.getStartTime().plusSeconds(seconds));
+
+        //assign winnings.
+        for (Map.Entry<String, Integer> entry: winnings.entrySet()){
+            usersRepository.get(entry.getKey()).addWinnings(new Winnings(entry.getValue(), play.getEndTime()));
+        }
+
     }
+
+    private void assignWinnings(Map<String, Integer> winnings, String username, Play play, PrizeType prizeType) {
+        int prizeAmount = getPrizeAmount(prizeType, play);
+        if (winnings.get(username) == null) {
+            winnings.put(username, prizeAmount);
+        } else {
+            winnings.put(username,winnings.get(username) + prizeAmount);
+        }
+    }
+
+    public int getPrizeAmount(PrizeType prizeType, Play play) {
+        switch (prizeType) {
+            case FOUR_CORNERS:
+                return play.getFourCornersPrize();
+            case ONE_LINE:
+                return play.getOneLinePrize();
+            case TWO_LINES:
+                return play.getTwoLinesPrize();
+            case FULL_HOUSE:
+                return play.getFullHousePrize();
+        }
+        return 0;
+    }
+
 
     public Ticket generateTicket(String username, int index) {
 
