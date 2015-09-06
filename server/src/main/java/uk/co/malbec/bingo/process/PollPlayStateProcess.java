@@ -1,20 +1,22 @@
-package uk.co.malbec.bingo;
+package uk.co.malbec.bingo.process;
+
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
+import uk.co.malbec.bingo.GameEngine;
+import uk.co.malbec.bingo.model.*;
+import uk.co.malbec.bingo.persistence.PlaysRepository;
 
 import javax.servlet.http.HttpSession;
 import java.util.*;
 
 @Controller
-@RequestMapping("play")
-public class PlayController {
+public class PollPlayStateProcess {
 
     @Autowired
     private PlaysRepository playsRepository;
@@ -22,14 +24,8 @@ public class PlayController {
     @Autowired
     private GameEngine gameEngine;
 
-    @RequestMapping(method= RequestMethod.POST)
-    public ResponseEntity joinPlay(@RequestBody String gameId, HttpSession session) {
-
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-    }
-
-    @RequestMapping(method= RequestMethod.GET)
-    public ResponseEntity playLoad(@RequestParam("gameId") String gameId, HttpSession session) {
+    @RequestMapping(value = "play", method = RequestMethod.GET)
+    public ResponseEntity pollPlayState(@RequestParam("gameId") String gameId, HttpSession session) {
         Play play = playsRepository.getCurrentPlay(UUID.fromString(gameId));
 
         User user = (User) session.getAttribute("user");
@@ -37,8 +33,8 @@ public class PlayController {
         //TODO - assign winnings should happen whenever a user is accessed.
         List<Winnings> resolvedWinnings = new ArrayList();
 
-        for (Winnings winnings: user.getWinningsList()){
-            if (winnings.getDateTime().isBeforeNow()){
+        for (Winnings winnings : user.getWinningsList()) {
+            if (winnings.getDateTime().isBeforeNow()) {
                 user.setWallet(user.getWallet() + winnings.getAmount());
                 resolvedWinnings.add(winnings);
             }
@@ -47,8 +43,8 @@ public class PlayController {
 
 
         Map<Integer, Ticket> tickets = new HashMap<>();
-        for (Ticket ticket : play.getTickets()){
-            if (ticket.getUsername().equals(user.getUsername())){
+        for (Ticket ticket : play.getTickets()) {
+            if (ticket.getUsername().equals(user.getUsername())) {
                 tickets.put(ticket.getIndex(), ticket);
             }
         }
@@ -72,29 +68,6 @@ public class PlayController {
         );
 
         return new ResponseEntity<>(playView, HttpStatus.OK);
-    }
-
-    @RequestMapping(method= RequestMethod.POST, value="/ante-in")
-    public ResponseEntity anteIn(@RequestBody AnteIn anteIn, HttpSession session){
-        User user = (User) session.getAttribute("user");
-        Play play = playsRepository.getCurrentPlay(anteIn.getGameId());
-
-        for (Map.Entry<Integer, Map<String ,Boolean>> ticket: anteIn.getTickets().entrySet()){
-            if (ticket.getValue().get("selected")){
-                int ticketFee = play.getGame().getTicketFee();
-                if (user.getWallet() > ticketFee) {
-
-                    user.setWallet(user.getWallet() - ticketFee);
-
-                    Ticket ticketBean = gameEngine.generateTicket(user.getUsername(), ticket.getKey());
-                    while (play.hasTicket(ticketBean.getKey())) {
-                        ticketBean = gameEngine.generateTicket(user.getUsername(), ticket.getKey());
-                    }
-                    play.addTicket(ticketBean.getKey(), ticketBean);
-                }
-            }
-        }
-        return playLoad(anteIn.getGameId().toString(), session);
     }
 
 }

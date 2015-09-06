@@ -1,6 +1,7 @@
-package uk.co.malbec.bingo;
+package uk.co.malbec.bingo.persistence;
 
 import org.springframework.stereotype.Repository;
+import uk.co.malbec.bingo.model.User;
 
 import java.util.HashMap;
 import java.util.Map;

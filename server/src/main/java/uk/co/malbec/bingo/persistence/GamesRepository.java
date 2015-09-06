@@ -1,7 +1,8 @@
-package uk.co.malbec.bingo;
+package uk.co.malbec.bingo.persistence;
 
 
 import org.springframework.stereotype.Repository;
+import uk.co.malbec.bingo.model.Game;
 
 import java.util.ArrayList;
 import java.util.List;

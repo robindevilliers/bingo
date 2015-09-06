@@ -5,6 +5,9 @@ import org.joda.time.DateTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import uk.co.malbec.bingo.model.Game;
+import uk.co.malbec.bingo.model.Play;
+import uk.co.malbec.bingo.persistence.PlaysRepository;
 
 import java.util.UUID;
 

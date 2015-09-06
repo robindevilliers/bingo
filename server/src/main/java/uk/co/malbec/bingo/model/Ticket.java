@@ -1,4 +1,4 @@
-package uk.co.malbec.bingo;
+package uk.co.malbec.bingo.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 

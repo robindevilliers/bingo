@@ -2,6 +2,8 @@ package uk.co.malbec.bingo;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import uk.co.malbec.bingo.model.*;
+import uk.co.malbec.bingo.persistence.UsersRepository;
 
 import java.util.*;
 

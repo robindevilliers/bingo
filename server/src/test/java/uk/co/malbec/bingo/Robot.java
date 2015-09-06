@@ -5,8 +5,10 @@ package uk.co.malbec.bingo;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestTemplate;
+import uk.co.malbec.bingo.model.AnteIn;
+import uk.co.malbec.bingo.model.Login;
+import uk.co.malbec.bingo.model.Play;
+import uk.co.malbec.bingo.model.PlayView;
 
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;

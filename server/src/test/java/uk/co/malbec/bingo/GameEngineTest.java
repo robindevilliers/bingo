@@ -2,6 +2,7 @@ package uk.co.malbec.bingo;
 
 import org.joda.time.DateTime;
 import org.junit.Test;
+import uk.co.malbec.bingo.model.*;
 
 import java.util.HashMap;
 import java.util.Map;

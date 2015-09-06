@@ -1,7 +1,5 @@
-package uk.co.malbec.bingo;
+package uk.co.malbec.bingo.model;
 
-
-import org.joda.time.DateTime;
 
 import java.util.ArrayList;
 import java.util.List;

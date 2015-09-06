@@ -1,5 +1,7 @@
-package uk.co.malbec.bingo;
+package uk.co.malbec.bingo.model;
 
+
+import uk.co.malbec.bingo.model.Draw;
 
 import java.util.ArrayList;
 import java.util.List;

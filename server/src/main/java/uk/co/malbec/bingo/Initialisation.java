@@ -6,6 +6,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.stereotype.Service;
+import uk.co.malbec.bingo.model.Game;
+import uk.co.malbec.bingo.model.Play;
+import uk.co.malbec.bingo.persistence.GamesRepository;
+import uk.co.malbec.bingo.persistence.PlaysRepository;
 
 import java.util.UUID;
 
