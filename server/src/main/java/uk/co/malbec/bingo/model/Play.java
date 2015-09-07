@@ -18,9 +18,6 @@ public class Play {
 
     private GameScript gameScript;
 
-    public Play() {
-    }
-
     public Play(UUID id, Game game, DateTime startTime){
         this.id = id;
         this.game = game;

@@ -6,7 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-import uk.co.malbec.bingo.model.Register;
+import uk.co.malbec.bingo.present.request.RegisterRequest;
 import uk.co.malbec.bingo.model.User;
 import uk.co.malbec.bingo.persistence.UsersRepository;
 
@@ -19,7 +19,7 @@ public class RegisterProcess {
     private UsersRepository usersRepository;
 
     @RequestMapping(value = "register", method = RequestMethod.POST)
-    public ResponseEntity register(@RequestBody() Register register, HttpSession httpSession) {
+    public ResponseEntity register(@RequestBody() RegisterRequest register, HttpSession httpSession) {
 
         User user = new User(
                 register.getEmailAddress(),

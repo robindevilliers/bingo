@@ -1,7 +1,7 @@
-package uk.co.malbec.bingo.model;
+package uk.co.malbec.bingo.present.request;
 
 
-public class Register {
+public class RegisterRequest {
 
     private String emailAddress;
 
@@ -17,11 +17,11 @@ public class Register {
 
     private String securityNumber;
 
-    public Register(){
+    public RegisterRequest(){
 
     }
 
-    public Register(String emailAddress, String username, String password, String cardNumber, String cardType, String expiryDate, String securityNumber) {
+    public RegisterRequest(String emailAddress, String username, String password, String cardNumber, String cardType, String expiryDate, String securityNumber) {
         this.emailAddress = emailAddress;
         this.username = username;
         this.password = password;

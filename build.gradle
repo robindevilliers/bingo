@@ -5,12 +5,7 @@ allprojects {
     group = 'uk.co.malbec.bingo'
 
     version = '1.0'
-    idea {
-        project {
-            jdkName = '1.7'
-            languageLevel = '1.7'
-        }
-    }
+
 }
 
 subprojects {

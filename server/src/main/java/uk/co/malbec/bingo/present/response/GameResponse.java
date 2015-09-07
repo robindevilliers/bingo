@@ -1,10 +1,9 @@
-package uk.co.malbec.bingo.model;
+package uk.co.malbec.bingo.present.response;
 
 
 import java.util.UUID;
 
-public class Game {
-
+public class GameResponse {
     private UUID id;
 
     private String title;
@@ -15,7 +14,7 @@ public class Game {
 
     private int playerLimit;
 
-    public Game(UUID id, String title, int stagingTime, int ticketFee, int playerLimit) {
+    public GameResponse(UUID id, String title, int stagingTime, int ticketFee, int playerLimit) {
         this.id = id;
         this.title = title;
         this.stagingTime = stagingTime;

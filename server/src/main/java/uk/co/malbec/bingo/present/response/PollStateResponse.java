@@ -1,17 +1,17 @@
-package uk.co.malbec.bingo.model;
+package uk.co.malbec.bingo.present.response;
 
 
 import org.joda.time.DateTime;
 
 import java.util.Map;
 
-public class PlayView {
+public class PollStateResponse {
 
     private String username;
 
-    private Game game;
+    private GameResponse game;
 
-    private Map<Integer, Ticket> tickets;
+    private Map<Integer, TicketResponse> tickets;
 
     private int totalPot;
 
@@ -28,14 +28,26 @@ public class PlayView {
     private int fourCornersPrize;
 
     private DateTime startTime;
+
     private DateTime endTime;
 
-    private GameScript gameScript;
+    private GameScriptResponse gameScript;
 
-    public PlayView() {
-    }
-
-    public PlayView(String username, Game game, Map<Integer, Ticket> tickets, int totalPot, DateTime startTime, DateTime endTime, int yourBet, int yourWallet, int fullHousePrize, int twoLinesPrize, int oneLinePrize, int fourCornersPrize, GameScript gameScript) {
+    public PollStateResponse(
+            String username,
+            GameResponse game,
+            Map<Integer, TicketResponse> tickets,
+            int totalPot,
+            DateTime startTime,
+            DateTime endTime,
+            int yourBet,
+            int yourWallet,
+            int fullHousePrize,
+            int twoLinesPrize,
+            int oneLinePrize,
+            int fourCornersPrize,
+            GameScriptResponse gameScript
+    ) {
         this.username = username;
         this.game = game;
         this.tickets = tickets;
@@ -55,11 +67,11 @@ public class PlayView {
         return username;
     }
 
-    public Game getGame() {
+    public GameResponse getGame() {
         return game;
     }
 
-    public Map<Integer, Ticket> getTickets() {
+    public Map<Integer, TicketResponse> getTickets() {
         return tickets;
     }
 
@@ -99,7 +111,7 @@ public class PlayView {
         return fourCornersPrize;
     }
 
-    public GameScript getGameScript() {
+    public GameScriptResponse getGameScript() {
         return gameScript;
     }
 }

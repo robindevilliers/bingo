@@ -1,4 +1,4 @@
-package uk.co.malbec.bingo.model;
+package uk.co.malbec.bingo;
 
 
 public enum PrizeType {

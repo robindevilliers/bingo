@@ -1,16 +1,15 @@
 package uk.co.malbec.bingo.process;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
 import uk.co.malbec.bingo.*;
 import uk.co.malbec.bingo.model.*;
 import uk.co.malbec.bingo.persistence.PlaysRepository;
+import uk.co.malbec.bingo.present.request.AnteInRequest;
 
 import javax.servlet.http.HttpSession;
 import java.util.*;
@@ -29,7 +28,7 @@ public class AnteInProcess {
     private PollPlayStateProcess pollPlayStateProcess;
 
     @RequestMapping(method = RequestMethod.POST, value = "/ante-in")
-    public ResponseEntity anteIn(@RequestBody AnteIn anteIn, HttpSession session) {
+    public ResponseEntity anteIn(@RequestBody AnteInRequest anteIn, HttpSession session) {
         User user = (User) session.getAttribute("user");
         Play play = playsRepository.getCurrentPlay(anteIn.getGameId());
 

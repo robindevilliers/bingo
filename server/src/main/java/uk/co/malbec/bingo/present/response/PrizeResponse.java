@@ -1,15 +1,14 @@
-package uk.co.malbec.bingo.model;
-
+package uk.co.malbec.bingo.present.response;
 
 import uk.co.malbec.bingo.PrizeType;
 
-public class Prize {
+public class PrizeResponse {
 
     private String username;
 
     private PrizeType prizeType;
 
-    public Prize(String username, PrizeType prizeType) {
+    public PrizeResponse(String username, PrizeType prizeType) {
         this.username = username;
         this.prizeType = prizeType;
     }

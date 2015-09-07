@@ -7,7 +7,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-import uk.co.malbec.bingo.model.Topup;
+import uk.co.malbec.bingo.present.request.TopupRequest;
 import uk.co.malbec.bingo.model.User;
 import uk.co.malbec.bingo.persistence.UsersRepository;
 
@@ -20,7 +20,7 @@ public class TopupProcess {
     private UsersRepository usersRepository;
 
     @RequestMapping(value="topup", method = RequestMethod.POST)
-    public ResponseEntity register(@RequestBody() Topup topup, HttpSession session) {
+    public ResponseEntity register(@RequestBody() TopupRequest topup, HttpSession session) {
 
         User user = (User) session.getAttribute("user");
 

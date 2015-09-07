@@ -1,20 +1,19 @@
-package uk.co.malbec.bingo.model;
+package uk.co.malbec.bingo.present.request;
 
 
 import java.util.Map;
 import java.util.UUID;
 
-public class AnteIn {
+public class AnteInRequest {
 
     private UUID gameId;
 
     private Map<Integer, Map<String, Boolean>> tickets;
 
-
-    public AnteIn() {
+    public AnteInRequest() {
     }
 
-    public AnteIn(UUID gameId, Map<Integer, Map<String, Boolean>> tickets) {
+    public AnteInRequest(UUID gameId, Map<Integer, Map<String, Boolean>> tickets) {
         this.gameId = gameId;
         this.tickets = tickets;
     }

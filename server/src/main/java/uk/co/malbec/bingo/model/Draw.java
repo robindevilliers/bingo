@@ -10,12 +10,8 @@ public class Draw {
 
     private List<Prize> prizes = new ArrayList<>();
 
-    public Draw() {
-    }
-
     public Draw(Integer number) {
         this.number = number;
-        this.prizes = prizes;
     }
 
     public void add(Prize prize){

@@ -5,10 +5,10 @@ package uk.co.malbec.bingo;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import org.slf4j.LoggerFactory;
-import uk.co.malbec.bingo.model.AnteIn;
-import uk.co.malbec.bingo.model.Login;
+import uk.co.malbec.bingo.present.request.AnteInRequest;
+import uk.co.malbec.bingo.present.request.LoginRequest;
 import uk.co.malbec.bingo.model.Play;
-import uk.co.malbec.bingo.model.PlayView;
+import uk.co.malbec.bingo.present.response.PollStateResponse;
 
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -53,7 +53,7 @@ public class Robot {
 
     public static void login(Client client, String username) {
         WebTarget target = client.target("http://localhost:8080/login");
-        Response response = target.request().post(Entity.entity(new Login(username, username), "application/json"));
+        Response response = target.request().post(Entity.entity(new LoginRequest(username, username), "application/json"));
 
         if (response.getStatus() != 204) {
             throw new RuntimeException("invalid login");
@@ -104,7 +104,7 @@ public class Robot {
 
     }
 
-    private static PlayView pollGameState(Client client, Play play) {
+    private static PollStateResponse pollGameState(Client client, Play play) {
         WebTarget target = client.target("http://localhost:8080/play?gameId=" + play.getGame().getId().toString());
         Response response = target.request().get();
 
@@ -112,7 +112,7 @@ public class Robot {
             throw new RuntimeException("error polling game state");
         }
 
-        return response.readEntity(PlayView.class);
+        return response.readEntity(PollStateResponse.class);
     }
 
     private static void anteIn(Client client, Play play) {
@@ -139,7 +139,7 @@ public class Robot {
         }};
 
         WebTarget target = client.target("http://localhost:8080/play/ante-in");
-        Response response = target.request().post(Entity.entity(new AnteIn(play.getGame().getId(), tickets), "application/json"));
+        Response response = target.request().post(Entity.entity(new AnteInRequest(play.getGame().getId(), tickets), "application/json"));
 
 
         if (response.getStatus() != 200) {
