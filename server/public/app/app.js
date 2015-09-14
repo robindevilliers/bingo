@@ -15,20 +15,15 @@ var Actions = Reflux.createActions({
     "topupSubmit": {children: ["success","failed"]},
     "playLoad": {children: ["success", "failed"]},
     "displayLobby": {},
+    "sendMessage": {children: ["success", "failed"]},
+    "pollMessages": {children: ["success", "failed"]},
 });
-
-
-
-
-
-
-
 
 function amountString(amount){
     var pounds = Math.floor( amount / 100);
 
     if (pounds >= 1){
-        return '£' + pounds + ':' +  (amount - (pounds * 100));
+        return '£' + pounds + '.' +  (amount - (pounds * 100));
     } else {
         return '' + amount + 'p'
     }

@@ -13,8 +13,8 @@ import static java.util.stream.Collectors.toMap;
 
 public class Converters {
 
-    public static Function<Game, GameResponse> toGameResponse(){
-        return game ->  new GameResponse(
+    public static Function<Game, GameResponse> toGameResponse() {
+        return game -> new GameResponse(
                 game.getId(),
                 game.getTitle(),
                 game.getStagingTime(),
@@ -23,36 +23,36 @@ public class Converters {
         );
     }
 
-    public static Function<Ticket, TicketResponse> toTicketResponse(){
-       return ticket -> new TicketResponse(
+    public static Function<Ticket, TicketResponse> toTicketResponse() {
+        return ticket -> new TicketResponse(
                 ticket.getId(),
                 ticket.getKey(),
                 ticket.getIndex(),
                 ticket.getNumbers()
-       );
+        );
     }
 
-    public static Function<Prize, PrizeResponse> toPrizeResponse(){
+    public static Function<Prize, PrizeResponse> toPrizeResponse() {
         return prize -> new PrizeResponse(
                 prize.getUsername(),
                 prize.getPrizeType()
         );
     }
 
-    public static Function<Draw, DrawResponse> toDrawResponse(){
+    public static Function<Draw, DrawResponse> toDrawResponse() {
         return draw -> new DrawResponse(
                 draw.getNumber(),
                 draw.getPrizes().stream().map(toPrizeResponse()).collect(toList())
         );
     }
 
-    public static Function<GameScript, GameScriptResponse> toGameScriptView(){
+    public static Function<GameScript, GameScriptResponse> toGameScriptView() {
         return gameScript -> new GameScriptResponse(
                 gameScript.getDraws().stream().map(toDrawResponse()).collect(toList())
         );
     }
 
-    public static Function<Play, PlayResponse> toPlayResponse(){
+    public static Function<Play, PlayResponse> toPlayResponse() {
         return play -> new PlayResponse(
                 play.getId(),
                 toGameResponse().apply(play.getGame()),
@@ -60,6 +60,14 @@ public class Converters {
                 play.getStartTime(),
                 play.getEndTime(),
                 ofNullable(play.getGameScript()).map(toGameScriptView()).orElse(null)
+        );
+    }
+
+    public static Function<ChatMessage, PollMessageResponse> toPollMessageResponse() {
+        return chatMessage -> new PollMessageResponse(
+                chatMessage.getMessageIndex(),
+                chatMessage.getUsername(),
+                chatMessage.getMessage()
         );
     }
 

@@ -20,6 +20,7 @@ var PlayPage = React.createClass({
             },
             play: null,
             reference: setInterval(this.onInterval, 200),
+            displayChat: false
         };
     },
     onPurchase: function(event){
@@ -33,6 +34,9 @@ var PlayPage = React.createClass({
     },
     onPlayLoad: function(data){
         this.setState({play: data});
+    },
+    onToggleChat: function(event){
+        this.setState({displayChat: !this.state.displayChat});
     },
     selectTicket: function(index){
         var hasTickets = this.state.play != null && this.state.play.tickets != null && !$.isEmptyObject(this.state.play.tickets);
@@ -176,21 +180,32 @@ var PlayPage = React.createClass({
             this.state.tickets[6].selected;
 
 
+
+
         var anteInButton = '';
         if (!hasTickets){
             anteInButton = <button type="button" onClick={this.onPurchase} className="btn btn-lg btn-primary" disabled={!enableAnteIn}>Ante In!</button>;
         }
 
-        return (
-            <div className="container">
+
+        var content = null;
+        if (this.state.displayChat) {
+            var chatRoom = null;
+            var username = null;
+            if (this.state.play != null){
+                chatRoom = this.state.play.game.title;
+                username = this.state.play.username;
+            }
+            content = (
                 <div className="row">
-                    <div className="col-md-4">
-                        <GameDial parameters={params} />
-                    </div>
-                    <div className="col-md-8">
-                        <GameBanner parameters={params}/>
+                    <div className="col-md-12">
+                        <ChatPane chatRoom={chatRoom} username={username}/>
                     </div>
                 </div>
+            );
+        } else {
+            content = (
+
                 <div className="row">
                     <div className="col-md-6">
                         <div className="row">
@@ -215,12 +230,36 @@ var PlayPage = React.createClass({
                         </div>
                     </div>
                 </div>
-                <div className="row ">
-                    <div className="col-sm-1 pull-right">
+            );
+        }
+
+
+
+        return (
+            <div className="container">
+
+                <div className="row">
+                    <div className="col-md-4">
+                        <GameDial parameters={params} />
+                    </div>
+                    <div className="col-md-8">
+                        <GameBanner parameters={params}/>
+                    </div>
+                </div>
+                {content}
+                <div className="row">
+                    &nbsp;
+                </div>
+                <div className="row">
+
+                    <div className="col-md-1 pull-right">
                         <button type="button" onClick={this.onLeave} className="btn btn-lg btn-info">Leave</button>
                     </div>
-                    <div className="col-sm-1 pull-right">
+                    <div className="col-md-1 pull-right">
                         {anteInButton}
+                    </div>
+                    <div className="col-md-2 pull-right">
+                        <button type="button" onClick={this.onToggleChat} className="btn btn-lg btn-info">Toggle Chat</button>
                     </div>
                 </div>
 
