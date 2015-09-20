@@ -18,6 +18,9 @@ public class PlayResponse {
 
     private GameScriptResponse gameScript;
 
+    public PlayResponse() {
+    }
+
     public PlayResponse(UUID id, GameResponse game, List<TicketResponse> tickets, DateTime startTime, DateTime endTime, GameScriptResponse gameScript) {
         this.id = id;
         this.game = game;

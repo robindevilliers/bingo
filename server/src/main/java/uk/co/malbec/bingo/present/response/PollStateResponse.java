@@ -33,6 +33,9 @@ public class PollStateResponse {
 
     private GameScriptResponse gameScript;
 
+    public PollStateResponse() {
+    }
+
     public PollStateResponse(
             String username,
             GameResponse game,

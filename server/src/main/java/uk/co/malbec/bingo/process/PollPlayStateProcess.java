@@ -51,10 +51,13 @@ public class PollPlayStateProcess {
         user.removeWinnings(winningsToResolve);
 
         Play play = playsRepository.getCurrentPlay(UUID.fromString(gameId));
-       List<Ticket> playerTickets = play.getTickets()
-               .stream()
-               .filter(ticket -> ticket.getUsername().equals(user.getUsername()))
-               .collect(toList());
+        List<Ticket> playerTickets;
+        synchronized (play) {
+            playerTickets = play.getTickets()
+                    .stream()
+                    .filter(ticket -> ticket.getUsername().equals(user.getUsername()))
+                    .collect(toList());
+        }
 
         PollStateResponse pollState = new PollStateResponse(
                 user.getUsername(),
@@ -73,6 +76,7 @@ public class PollPlayStateProcess {
         );
 
         return new ResponseEntity<>(pollState, HttpStatus.OK);
+
     }
 
 }

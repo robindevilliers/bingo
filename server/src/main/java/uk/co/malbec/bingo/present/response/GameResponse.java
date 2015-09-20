@@ -14,6 +14,10 @@ public class GameResponse {
 
     private int playerLimit;
 
+
+    public GameResponse() {
+    }
+
     public GameResponse(UUID id, String title, int stagingTime, int ticketFee, int playerLimit) {
         this.id = id;
         this.title = title;

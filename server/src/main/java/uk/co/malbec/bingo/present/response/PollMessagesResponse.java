@@ -7,6 +7,9 @@ public class PollMessagesResponse {
 
     private List<PollMessageResponse> messages;
 
+    public PollMessagesResponse() {
+    }
+
     public PollMessagesResponse(List<PollMessageResponse> messages) {
         this.messages = messages;
     }

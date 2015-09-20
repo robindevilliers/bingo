@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import static org.junit.Assert.assertEquals;
 
 public class Robot {
 
@@ -29,7 +28,7 @@ public class Robot {
 
     public static void main(String[] args) {
 
-        Logger root = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+        Logger root = (Logger) LoggerFactory.getLogger("ROOT");
         root.setLevel(Level.INFO);
 
         for (int i = 0; i < 200; i++) {

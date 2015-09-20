@@ -8,6 +8,9 @@ public class PrizeResponse {
 
     private PrizeType prizeType;
 
+    public PrizeResponse() {
+    }
+
     public PrizeResponse(String username, PrizeType prizeType) {
         this.username = username;
         this.prizeType = prizeType;

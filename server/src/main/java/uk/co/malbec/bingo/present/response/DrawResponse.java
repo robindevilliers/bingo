@@ -7,6 +7,9 @@ public class DrawResponse {
 
     private List<PrizeResponse> prizes;
 
+    public DrawResponse() {
+    }
+
     public DrawResponse(Integer number, List<PrizeResponse> prizes) {
         this.number = number;
         this.prizes = prizes;

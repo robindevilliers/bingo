@@ -12,6 +12,9 @@ public class TicketResponse {
 
     private Integer[] numbers;
 
+    public TicketResponse() {
+    }
+
     public TicketResponse(UUID id, String username, int index, Integer[] numbers) {
         this.id = id;
         this.username = username;

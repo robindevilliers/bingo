@@ -9,6 +9,9 @@ public class PollMessageResponse {
 
     private String message;
 
+    public PollMessageResponse() {
+    }
+
     public PollMessageResponse(int messageIndex, String username, String message) {
         this.messageIndex = messageIndex;
         this.username = username;

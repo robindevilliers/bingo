@@ -6,12 +6,12 @@ import uk.co.malbec.bingo.model.Play;
 
 import java.util.*;
 
+import static java.util.Collections.synchronizedMap;
+
 @Repository
 public class PlaysRepository {
 
-    private GamesRepository gamesRepository;
-
-    private Map<UUID, Play> currentPlays = new HashMap<UUID, Play>();
+    private Map<UUID, Play> currentPlays = synchronizedMap(new HashMap<UUID, Play>());
 
     private Map<UUID, List<Play>> closedPlays = new HashMap<UUID, List<Play>>();
 
