@@ -58,6 +58,9 @@ public class Server extends Thread {
                 }
 
                 Supplier<?> supplier = job.getResourceSuppliers().get(operationRecord.getClazz());
+                if (supplier == null){
+                    throw new RuntimeException("Supplier not found for resource of type " + operationRecord.getClazz());
+                }
 
                 executorService.execute(() -> {
                     job.getOperationContext().trace("executing operation " + job.getTransition().getOperationType());

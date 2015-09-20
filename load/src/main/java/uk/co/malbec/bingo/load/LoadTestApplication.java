@@ -14,7 +14,11 @@ import uk.co.malbec.hound.Transition;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.GenericType;
+import javax.ws.rs.core.Response;
+
 import java.util.*;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import static java.util.Optional.of;
 import static java.util.stream.Collectors.toList;
@@ -34,8 +38,6 @@ public class LoadTestApplication {
     }
 
     public static void main(String[] args) {
-
-
         Hound hound = new Hound();
         configureOperations(hound);
         hound.shutdownTime(now().plusMinutes(1));
@@ -46,9 +48,11 @@ public class LoadTestApplication {
 
             hound
                     .createUser()
-                    .addTraceLogger((name, message) -> { System.out.println(now() + "  -  " + name + "  -  " + message);})
+                    .addTraceLogger((name, message) -> {
+                        System.out.println(now() + "  -  " + name + "  -  " + message);
+                    })
                     .addToSession("index", 0)
-                    .registerSupplier(WebTarget.class, () -> target)
+                    .registerSupplier(BingoServer.class, () -> new BingoServer(target))
                     .start("user" + 0, new Transition(BingoOperationType.REGISTER, now()));
         }
 
@@ -60,200 +64,175 @@ public class LoadTestApplication {
             hound
                     .createUser()
                     .addToSession("index", i)
-                    .registerSupplier(WebTarget.class, () -> target)
+                    .registerSupplier(BingoServer.class, () -> new BingoServer(target))
                     .start("user" + i, new Transition(BingoOperationType.REGISTER, now()));
         });
     }
 
 
-    private static void configureOperations(Hound hound){
-        hound.register(BingoOperationType.REGISTER, WebTarget.class, (target, context) -> {
+    private static void configureOperations(Hound hound) {
+        hound
+                .register(BingoOperationType.REGISTER, BingoServer.class, (bingo, context) -> {
+                    Integer index = (Integer) context.getSession().get("index");
 
+                    of(bingo.post("register", new RegisterRequest("user@me.com", "user" + index, "password" + index, "12345678", "Visa", "08/19", "111")))
+                            .filter(isStatus(204)).orElseThrow(error("invalid registration"));
 
-            Integer index = (Integer) context.getSession().get("index");
-            of(
-                    target.path("register").request().post(entity(new RegisterRequest("user@me.com", "user" + index, "password" + index, "12345678", "Visa", "08/19", "111"), "application/json"))
-            )
-                    .filter(r -> r.getStatus() == 204).orElseThrow(() -> new RuntimeException("invalid registration"));
+                    context.schedule(new Transition(BingoOperationType.ENTER_LOBBY, now()));
+                })
+                .register(BingoOperationType.LOGIN, BingoServer.class, (bingo, context) -> {
 
-            context.schedule(new Transition(BingoOperationType.ENTER_LOBBY, now()));
-        });
+                    of(bingo.post("login", new LoginRequest("robin", "lizard")))
+                            .filter(isStatus(204)).orElseThrow(error("invalid login"));
 
+                    context.schedule(new Transition(BingoOperationType.ENTER_LOBBY, now()));
+                })
+                .register(BingoOperationType.ENTER_LOBBY, BingoServer.class, (bingo, context) -> {
 
-        hound.register(BingoOperationType.LOGIN, WebTarget.class, (target, context) -> {
+                    List<PlayResponse> plays = of(bingo.get("lobby"))
+                            .filter(isStatus(200)).map(r -> r.readEntity(new ListPlayResponse())).orElseThrow(error("invalid response code"));
 
-            of(
-                    target.path("login").request().post(entity(new LoginRequest("robin", "lizard"), "application/json"))
-            )
-                    .filter(r -> r.getStatus() == 204).orElseThrow(() -> new RuntimeException("invalid login"));
+                    List<PlayResponse> availableGames = plays
+                            .stream()
+                            .filter(play -> play.getStartTime().isAfter(now().plusSeconds(35)))
+                            .collect(toList());
 
-            context.schedule(new Transition(BingoOperationType.ENTER_LOBBY, now()));
+                    if (availableGames.isEmpty()) {
+                        context.schedule(new Transition(BingoOperationType.ENTER_LOBBY, now().plusSeconds(5)));
+                        return;
+                    }
 
+                    context.getSession().put("game", availableGames.get(randomGenerator.nextInt(availableGames.size())));
+                    context.schedule(new Transition(BingoOperationType.TOP_UP, now().plusSeconds(3)));
+                })
+                .register(BingoOperationType.TOP_UP, BingoServer.class, (bingo, context) -> {
 
-        });
+                    of(bingo.post("topup", new TopupRequest("50")))
+                            .filter(isStatus(204)).orElseThrow(error("invalid topup"));
 
-        hound.register(BingoOperationType.ENTER_LOBBY, WebTarget.class, (target, context) -> {
+                    context.schedule(new Transition(BingoOperationType.JOIN_PLAY, now()));
+                })
+                .register(BingoOperationType.JOIN_PLAY, BingoServer.class, (bingo, context) -> {
+                    PlayResponse play = (PlayResponse) context.getSession().get("game");
+                    context.trace("joining game " + play.getGame().getTitle());
 
-            List<PlayResponse> plays = of(
-                    target.path("lobby").request().get()
-            )
-                    .filter(r -> r.getStatus() == 200)
-                    .map(r -> r.readEntity(new ListPlayResponse()))
-                    .orElseThrow(() -> new RuntimeException("invalid response code"));
+                    of(bingo.post("play", play.getGame().getId().toString()))
+                            .filter(isStatus(204)).orElseThrow(error("error joining game"));
 
-            List<PlayResponse> availableGames = plays
-                    .stream()
-                    .filter(play -> play.getStartTime().isAfter(now().plusSeconds(35)))
-                    .collect(toList());
+                    context.schedule(new Transition(BingoOperationType.POLL_STATE, now().plusSeconds(1)));
+                    context.schedule(new Transition(BingoOperationType.POLL_CHAT_MESSAGES, now().plusSeconds(randomGenerator.nextInt(40))));
+                })
+                .register(BingoOperationType.POLL_STATE, BingoServer.class, (bingo, context) -> {
+                    PlayResponse play = (PlayResponse) context.getSession().get("game");
 
+                    PollStateResponse pollStateResponse = of(bingo.get("play", "gameId", play.getGame().getId().toString()))
+                            .filter(isStatus(200)).map(r -> r.readEntity(PollStateResponse.class)).orElseThrow(error("error polling game state"));
 
-            if (availableGames.isEmpty()) {
-                context.schedule(new Transition(BingoOperationType.ENTER_LOBBY, now().plusSeconds(5)));
-                return;
-            }
+                    //test for the start of a new game
+                    if (!pollStateResponse.getStartTime().equals(context.getSession().get("startTime"))) {
+                        context.getSession().put("startTime", pollStateResponse.getStartTime());
 
-            context.getSession().put("game", availableGames.get(randomGenerator.nextInt(availableGames.size())));
-            context.schedule(new Transition(BingoOperationType.TOP_UP, now().plusSeconds(3)));
-        });
+                        long wait = randomGenerator.nextLong() % Math.max(pollStateResponse.getStartTime().getMillis() - 35000 - now().getMillis(), 0);
+                        context.schedule(new Transition(BingoOperationType.ANTE_IN, now().plusMillis((int) wait)));
 
+                        context.trace("game starts at " + pollStateResponse.getStartTime());
+                    }
 
-        hound.register(BingoOperationType.TOP_UP, WebTarget.class, (target, context) -> {
+                    if (pollStateResponse.getEndTime() == null) {
+                        context.schedule(new Transition(BingoOperationType.POLL_STATE, now().plusSeconds(1)));
+                    } else {
+                        context.trace("game start... and it ends at " + pollStateResponse.getEndTime());
+                        context.schedule(new Transition(BingoOperationType.POLL_STATE, now().plusMillis((int) Math.max(pollStateResponse.getEndTime().getMillis() - now().getMillis() + 10000, 0))));
+                    }
+                })
+                .register(BingoOperationType.ANTE_IN, BingoServer.class, (bingo, context) -> {
+                    PlayResponse play = (PlayResponse) context.getSession().get("game");
 
-            of(
-                    target.path("topup").request().post(entity(new TopupRequest("50"), "application/json"))
-            )
-                    .filter(r -> r.getStatus() == 204).orElseThrow(() -> new RuntimeException("invalid topup"));
+                    Map<Integer, Map<String, Boolean>> tickets = new HashMap<Integer, Map<String, Boolean>>() {{
+                        put(1, new HashMap<String, Boolean>() {{
+                            put("selected", true);
+                        }});
+                        put(2, new HashMap<String, Boolean>() {{
+                            put("selected", true);
+                        }});
+                        put(3, new HashMap<String, Boolean>() {{
+                            put("selected", true);
+                        }});
+                        put(4, new HashMap<String, Boolean>() {{
+                            put("selected", true);
+                        }});
+                        put(5, new HashMap<String, Boolean>() {{
+                            put("selected", true);
+                        }});
+                        put(6, new HashMap<String, Boolean>() {{
+                            put("selected", true);
+                        }});
+                    }};
 
-            context.schedule(new Transition(BingoOperationType.JOIN_PLAY, now()));
-        });
+                    of(bingo.post("play/ante-in", new AnteInRequest(play.getGame().getId(), tickets)))
+                            .filter(isStatus(200)).orElseThrow(error("error ante in"));
+                })
+                .register(BingoOperationType.POLL_CHAT_MESSAGES, BingoServer.class, (bingo, context) -> {
+                    PlayResponse play = (PlayResponse) context.getSession().get("game");
 
+                    Integer messageIndex = (Integer) context.getSession().get("messageIndex");
+                    if (messageIndex == null) {
+                        messageIndex = 0;
+                        context.getSession().put("messageIndex", 0);
+                        context.schedule(new Transition(BingoOperationType.SEND_CHAT_MESSAGE, now().plusSeconds(randomGenerator.nextInt(10) + 10)));
+                    }
 
-        hound.register(BingoOperationType.JOIN_PLAY, WebTarget.class, (target, context) -> {
+                    PollMessagesResponse response = of(bingo.post("poll-messages", new PollMessagesRequest(messageIndex, play.getGame().getTitle())))
+                            .filter(isStatus(200)).map(r -> r.readEntity(PollMessagesResponse.class)).orElseThrow(error("error polling message state"));
 
-            PlayResponse play = (PlayResponse) context.getSession().get("game");
-            context.trace("joining game " + play.getGame().getTitle());
+                    response.getMessages()
+                            .stream()
+                            .map(PollMessageResponse::getMessageIndex)
+                            .max(Comparator.naturalOrder())
+                            .ifPresent(i -> context.getSession().put("messageIndex", i));
 
-            of(
-                    target.path("play").request().post(entity(play.getGame().getId().toString(), "application/json"))
-            )
-                    .filter(r -> r.getStatus() == 204)
-                    .orElseThrow(() -> new RuntimeException("error joining game"));
+                    context.schedule(new Transition(BingoOperationType.POLL_CHAT_MESSAGES, now().plusMillis(500)));
+                })
+                .register(BingoOperationType.SEND_CHAT_MESSAGE, BingoServer.class, (bingo, context) -> {
+                    PlayResponse play = (PlayResponse) context.getSession().get("game");
 
-            context.schedule(new Transition(BingoOperationType.POLL_STATE, now().plusSeconds(1)));
+                    String chatRoom = play.getGame().getTitle();
+                    String username = "user" + context.getSession().get("index");
+                    String message = "message " + context.getSession().get("messageIndex");
+                    context.trace("message index " + context.getSession().get("messageIndex"));
 
+                    of(bingo.post("send-message", new SendMessageRequest(chatRoom, username, message)))
+                            .filter(isStatus(204)).orElseThrow(error("error sending message"));
 
-            context.schedule(new Transition(BingoOperationType.POLL_CHAT_MESSAGES, now().plusSeconds(randomGenerator.nextInt(40))));
-
-        });
-
-        hound.register(BingoOperationType.POLL_STATE, WebTarget.class, (target, context) -> {
-
-            PlayResponse play = (PlayResponse) context.getSession().get("game");
-
-            PollStateResponse pollStateResponse = of(
-                    target.path("play").queryParam("gameId", play.getGame().getId().toString()).request().get()
-            )
-                    .filter(r -> r.getStatus() == 200)
-                    .map(r -> r.readEntity(PollStateResponse.class))
-                    .orElseThrow(() -> new RuntimeException("error polling game state"));
-
-            //test for the start of a new game
-            if (!pollStateResponse.getStartTime().equals(context.getSession().get("startTime"))) {
-                context.getSession().put("startTime", pollStateResponse.getStartTime());
-
-                long wait = randomGenerator.nextLong() % Math.max(pollStateResponse.getStartTime().getMillis() - 35000 - now().getMillis(), 0);
-                context.schedule(new Transition(BingoOperationType.ANTE_IN, now().plusMillis((int) wait)));
-
-                context.trace("game starts at " + pollStateResponse.getStartTime());
-            }
-
-
-            if (pollStateResponse.getEndTime() == null) {
-                context.schedule(new Transition(BingoOperationType.POLL_STATE, now().plusSeconds(1)));
-            } else {
-                context.trace("game start... and it ends at " + pollStateResponse.getEndTime());
-                context.schedule(new Transition(BingoOperationType.POLL_STATE, now().plusMillis((int) Math.max(pollStateResponse.getEndTime().getMillis() - now().getMillis() + 10000, 0))));
-            }
-        });
-
-
-        hound.register(BingoOperationType.ANTE_IN, WebTarget.class, (target, context) -> {
-
-            PlayResponse play = (PlayResponse) context.getSession().get("game");
-
-            Map<Integer, Map<String, Boolean>> tickets = new HashMap<Integer, Map<String, Boolean>>() {{
-                put(1, new HashMap<String, Boolean>() {{
-                    put("selected", true);
-                }});
-                put(2, new HashMap<String, Boolean>() {{
-                    put("selected", true);
-                }});
-                put(3, new HashMap<String, Boolean>() {{
-                    put("selected", true);
-                }});
-                put(4, new HashMap<String, Boolean>() {{
-                    put("selected", true);
-                }});
-                put(5, new HashMap<String, Boolean>() {{
-                    put("selected", true);
-                }});
-                put(6, new HashMap<String, Boolean>() {{
-                    put("selected", true);
-                }});
-            }};
-
-            of(
-                    target.path("play").path("ante-in").request().post(entity(new AnteInRequest(play.getGame().getId(), tickets), "application/json"))
-            )
-                    .filter(r -> r.getStatus() == 200)
-                    .orElseThrow(() -> new RuntimeException("error ante in"));
-        });
-
-        hound.register(BingoOperationType.POLL_CHAT_MESSAGES, WebTarget.class, (target, context) -> {
-            PlayResponse play = (PlayResponse) context.getSession().get("game");
-
-            Integer messageIndex = (Integer) context.getSession().get("messageIndex");
-            if (messageIndex == null){
-                messageIndex = 0;
-                context.getSession().put("messageIndex", 0);
-                context.schedule(new Transition(BingoOperationType.SEND_CHAT_MESSAGE, now().plusSeconds(randomGenerator.nextInt(10) + 10)));
-            }
-            PollMessagesResponse response = of(
-                    target.path("poll-messages").request().post(entity(new PollMessagesRequest(messageIndex, play.getGame().getTitle()), "application/json"))
-            )
-                    .filter(r -> r.getStatus() == 200)
-                    .map(r -> r.readEntity(PollMessagesResponse.class))
-                    .orElseThrow(() -> new RuntimeException("error polling message state"));
-
-
-            response.getMessages()
-                    .stream()
-                    .map(PollMessageResponse::getMessageIndex)
-                    .max(Comparator.naturalOrder())
-                    .ifPresent(i -> context.getSession().put("messageIndex", i));
-
-
-            context.schedule(new Transition(BingoOperationType.POLL_CHAT_MESSAGES, now().plusMillis(500)));
-        });
-
-        hound.register(BingoOperationType.SEND_CHAT_MESSAGE, WebTarget.class, (target, context) ->{
-
-            PlayResponse play = (PlayResponse) context.getSession().get("game");
-
-            String chatRoom = play.getGame().getTitle();
-            String username = "user" + context.getSession().get("index");
-            String message = "message " + context.getSession().get("messageIndex");
-            context.trace("message index " + context.getSession().get("messageIndex"));
-            of(
-                    target.path("send-message").request().post(entity(new SendMessageRequest(chatRoom, username, message), "application/json"))
-            )
-                    .filter(r -> r.getStatus() == 204)
-                    .orElseThrow(() -> new RuntimeException("error sending message"));
-
-
-            context.schedule(new Transition(BingoOperationType.SEND_CHAT_MESSAGE, now().plusSeconds(randomGenerator.nextInt(10) + 10)));
-        });
+                    context.schedule(new Transition(BingoOperationType.SEND_CHAT_MESSAGE, now().plusSeconds(randomGenerator.nextInt(10) + 10)));
+                });
     }
 
+    public static Supplier<? extends RuntimeException> error(String message) {
+        return () -> new RuntimeException(message);
+    }
 
+    public static Predicate<? super Response> isStatus(int code) {
+        return r -> r.getStatus() == code;
+    }
+
+    public static class BingoServer {
+        private WebTarget target;
+
+        public BingoServer(WebTarget target) {
+            this.target = target;
+        }
+
+        public Response post(String path, Object request) {
+            return target.path(path).request().post(entity(request, "application/json"));
+        }
+
+        public Response get(String path) {
+            return target.path(path).request().get();
+        }
+
+        public Response get(String path, String name, String value) {
+            return target.path(path).queryParam(name, value).request().get();
+        }
+    }
 }
