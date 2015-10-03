@@ -1,7 +1,8 @@
-package uk.co.malbec.hound.impl;
+package uk.co.malbec.hound.reporter;
 
 
-import javax.swing.*;
+import uk.co.malbec.hound.Sample;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -10,9 +11,9 @@ import java.util.List;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.joda.time.DateTime.now;
-import static uk.co.malbec.hound.impl.ConsoleReporter.Alignment.CENTER;
-import static uk.co.malbec.hound.impl.ConsoleReporter.Alignment.LEFT;
-import static uk.co.malbec.hound.impl.ConsoleReporter.Alignment.RIGHT;
+import static uk.co.malbec.hound.reporter.ConsoleReporter.Alignment.CENTER;
+import static uk.co.malbec.hound.reporter.ConsoleReporter.Alignment.LEFT;
+import static uk.co.malbec.hound.reporter.ConsoleReporter.Alignment.RIGHT;
 
 public class ConsoleReporter {
 
@@ -22,7 +23,7 @@ public class ConsoleReporter {
 
     public void print(List<Sample> allSamples) {
 
-        List<String> columnNames = allSamples.stream().map(s -> s.getName()).distinct().collect(toList());
+        List<String> columnNames = allSamples.stream().map(s -> s.getOperationName()).distinct().collect(toList());
 
         Table timeProfileTable = new Table();
         timeProfileTable.addRow("Total Number of Operations");
@@ -37,7 +38,7 @@ public class ConsoleReporter {
         for (int columnIndex = 1; columnIndex <= columnNames.size(); columnIndex++) {
             String columnName = columnNames.get(columnIndex - 1);
             timeProfileTable.addColumn(columnName + " ");
-            generateTimeProfilesFor(timeProfileTable, columnIndex, allSamples.stream().filter(s -> s.getName().equals(columnName)).collect(toList()));
+            generateTimeProfilesFor(timeProfileTable, columnIndex, allSamples.stream().filter(s -> s.getOperationName().equals(columnName)).collect(toList()));
         }
 
         printTable(timeProfileTable, "Time Profile");
@@ -58,7 +59,7 @@ public class ConsoleReporter {
         for (int columnIndex = 1; columnIndex <= columnNames.size(); columnIndex++) {
             String columnName = columnNames.get(columnIndex - 1);
             distributionsTable.addColumn(columnName + " ");
-            generateTimeDistributions(distributionsTable, columnIndex, allSamples.stream().filter(s -> s.getName().equals(columnName)).map(s -> s.getEnd() - s.getStart()).collect(toList()), min.intValue(), max.intValue());
+            generateTimeDistributions(distributionsTable, columnIndex, allSamples.stream().filter(s -> s.getOperationName().equals(columnName)).map(s -> s.getEnd() - s.getStart()).collect(toList()), min.intValue(), max.intValue());
         }
 
         List<Integer> rowsToRemove = new ArrayList<>();

@@ -32,6 +32,10 @@ public class OperationContext<T> {
         this.traceLoggers = traceLoggers;
     }
 
+    public String getName() {
+        return name;
+    }
+
     public void trace(String message) {
         traceLoggers.forEach(logger -> logger.accept(name, message));
     }

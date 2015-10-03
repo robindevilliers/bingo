@@ -10,21 +10,25 @@ import uk.co.malbec.bingo.present.response.PollStateResponse;
 import uk.co.malbec.hound.Hound;
 import uk.co.malbec.hound.OperationType;
 import uk.co.malbec.hound.Transition;
+import uk.co.malbec.hound.reporter.HtmlReporter;
 
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.Response;
 
+import java.io.File;
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
+import static java.lang.String.format;
 import static java.util.Optional.of;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static javax.ws.rs.client.Entity.entity;
 import static org.joda.time.DateTime.now;
+import static uk.co.malbec.hound.Utils.pause;
 
 public class LoadTestApplication {
 
@@ -38,26 +42,18 @@ public class LoadTestApplication {
     }
 
     public static void main(String[] args) {
-        Hound hound = new Hound();
+
+        Hound hound = new Hound()
+                .shutdownTime(now().plusMinutes(1));
+
+        hound.configureReporter(HtmlReporter.class)
+                .setReportsDirectory(new File(format("%s/reports/%s", System.getProperty("user.dir"), System.currentTimeMillis())))
+                .setDescription("Bingo performance test running 1000 users for 1 minute.")
+                .setExecuteTime(now());
+
         configureOperations(hound);
-        hound.shutdownTime(now().plusMinutes(1));
 
-        {
-            Client client = new ResteasyClientBuilder().connectionPoolSize(2).build();
-            WebTarget target = client.target("http://localhost:8080");
-
-            hound
-                    .createUser()
-                    .addTraceLogger((name, message) -> {
-                        System.out.println(now() + "  -  " + name + "  -  " + message);
-                    })
-                    .addToSession("index", 0)
-                    .registerSupplier(BingoServer.class, () -> new BingoServer(target))
-                    .start("user" + 0, new Transition(BingoOperationType.REGISTER, now()));
-        }
-
-
-        range(1, 1001).forEach(i -> {
+        range(1, 1000).forEach(i -> {
             Client client = new ResteasyClientBuilder().connectionPoolSize(2).build();
             WebTarget target = client.target("http://localhost:8080");
 
@@ -67,6 +63,9 @@ public class LoadTestApplication {
                     .registerSupplier(BingoServer.class, () -> new BingoServer(target))
                     .start("user" + i, new Transition(BingoOperationType.REGISTER, now()));
         });
+
+
+        hound.waitFor();
     }
 
 
@@ -132,7 +131,7 @@ public class LoadTestApplication {
                     if (!pollStateResponse.getStartTime().equals(context.getSession().get("startTime"))) {
                         context.getSession().put("startTime", pollStateResponse.getStartTime());
 
-                        long wait = randomGenerator.nextLong() % Math.max(pollStateResponse.getStartTime().getMillis() - 35000 - now().getMillis(), 0);
+                        long wait = randomGenerator.nextLong() % Math.max(pollStateResponse.getStartTime().getMillis() - 30000 - now().getMillis(), 1);
                         context.schedule(new Transition(BingoOperationType.ANTE_IN, now().plusMillis((int) wait)));
 
                         context.trace("game starts at " + pollStateResponse.getStartTime());

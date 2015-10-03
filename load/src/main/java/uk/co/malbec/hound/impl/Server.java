@@ -3,6 +3,7 @@ package uk.co.malbec.hound.impl;
 
 import org.joda.time.DateTime;
 import uk.co.malbec.hound.OperationType;
+import uk.co.malbec.hound.Sampler;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -13,13 +14,15 @@ import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.joda.time.DateTime.now;
+import static uk.co.malbec.hound.Utils.pause;
 
 public class Server extends Thread {
 
     private Queue<Job> queue = new PriorityBlockingQueue<>();
 
-    private ExecutorService executorService = Executors.newFixedThreadPool(50);
+    private ExecutorService executorService;
 
     private AtomicInteger busyJobs = new AtomicInteger();
 
@@ -29,10 +32,14 @@ public class Server extends Thread {
 
     private Sampler sampler;
 
-    public Server(Map<OperationType, OperationRecord> operations, DateTime shutdownTime, Sampler sampler) {
+    private Runnable terminationCallback;
+
+    public Server(int threadSize, Map<OperationType, OperationRecord> operations, DateTime shutdownTime, Sampler sampler, Runnable terminationCallBack) {
+        executorService = newFixedThreadPool(threadSize);
         this.operations = operations;
         this.shutdownTime = shutdownTime;
         this.sampler = sampler;
+        this.terminationCallback = terminationCallBack;
     }
 
     public Queue<Job> getQueue() {
@@ -42,58 +49,52 @@ public class Server extends Thread {
     public void run() {
 
         while (!queue.isEmpty() && shutdownTime.isAfter(now())) {
-            try {
+            while (!queue.peek().isReady() && shutdownTime.isAfter(now())) {
+                pause(50);
+            }
 
-                while (!queue.peek().isReady() && shutdownTime.isAfter(now())) {
-                    sleep(50);
+            busyJobs.incrementAndGet();
+            Job job = queue.poll();
+
+            OperationRecord operationRecord = operations.get(job.getTransition().getOperationType());
+
+            if (operationRecord == null) {
+                throw new RuntimeException("Operation not found for operation type " + job.getTransition().getOperationType());
+            }
+
+            Supplier<?> supplier = job.getResourceSuppliers().get(operationRecord.getClazz());
+            if (supplier == null) {
+                throw new RuntimeException("Supplier not found for resource of type " + operationRecord.getClazz());
+            }
+
+            executorService.execute(() -> {
+                job.getOperationContext().trace("executing operation " + job.getTransition().getOperationType());
+                DateTime startTime = now();
+                String errorMessage = null;
+                try {
+                    operationRecord.getOperation().execute(supplier.get(), job.getOperationContext());
+                } catch (RuntimeException e) {
+                    errorMessage = e.getMessage();
+                } finally {
+                    DateTime endTime = now();
+                    busyJobs.decrementAndGet();
+                    sampler.addSample(job.getOperationContext().getName(), job.getTransition().getOperationType().name(), startTime, endTime, errorMessage);
                 }
+            });
 
-                busyJobs.incrementAndGet();
-                Job job = queue.poll();
-
-                OperationRecord operationRecord = operations.get(job.getTransition().getOperationType());
-
-                if (operationRecord == null) {
-                    throw new RuntimeException("Operation not found for operation type " + job.getTransition().getOperationType());
-                }
-
-                Supplier<?> supplier = job.getResourceSuppliers().get(operationRecord.getClazz());
-                if (supplier == null){
-                    throw new RuntimeException("Supplier not found for resource of type " + operationRecord.getClazz());
-                }
-
-                executorService.execute(() -> {
-                    job.getOperationContext().trace("executing operation " + job.getTransition().getOperationType());
-                    DateTime startTime = now();
-                    try {
-                        operationRecord.getOperation().execute(supplier.get(), job.getOperationContext());
-                    } finally {
-                        DateTime endTime = now();
-                        busyJobs.decrementAndGet();
-                        sampler.addSample(job.getTransition().getOperationType().name(), Thread.currentThread().getId(), startTime, endTime);
-                    }
-                });
-
-                //if after processing the job, the queue is empty, but the job is still running, we wait.
-                while (queue.isEmpty() && busyJobs.get() > 0 && shutdownTime.isAfter(now())) {
-                    sleep(50);
-                }
-
-            } catch (InterruptedException e) {
+            //if after processing the job, the queue is empty, but the job is still running, we wait.
+            while (queue.isEmpty() && busyJobs.get() > 0 && shutdownTime.isAfter(now())) {
+                pause(50);
             }
         }
 
         executorService.shutdown();
 
         while (busyJobs.get() > 0) {
-            try {
-                sleep(50);
-            } catch (InterruptedException e) {
-            }
+            pause(50);
         }
 
-
-        sampler.generateReport();
+        terminationCallback.run();
     }
 
 }

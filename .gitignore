@@ -4,3 +4,5 @@
 *.iws
 .idea
 .gradle
+reports/
+sample/
