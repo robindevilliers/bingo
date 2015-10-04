@@ -133,8 +133,6 @@ public class HtmlReporter implements Reporter {
             copyFileFromTemplate("fonts/glyphicons-halflings-regular.ttf", reportsDirectory);
             copyFileFromTemplate("fonts/glyphicons-halflings-regular.woff", reportsDirectory);
             copyFileFromTemplate("fonts/glyphicons-halflings-regular.woff2", reportsDirectory);
-
-            new ProcessBuilder("chromium-browser", reportsDirectory.getAbsolutePath() + "/index.html").start();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

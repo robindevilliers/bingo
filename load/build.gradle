@@ -32,7 +32,7 @@ task wrapper(type: Wrapper) {
 }
 
 
-task startLoadTest(type: JavaExec) {
+task runLoadTest(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
 
     main = "uk.co.malbec.bingo.load.LoadTestApplication"

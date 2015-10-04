@@ -1,6 +1,7 @@
 package uk.co.malbec.bingo;
 
 import org.joda.time.DateTime;
+import org.junit.Ignore;
 import org.junit.Test;
 import uk.co.malbec.bingo.model.*;
 
@@ -13,6 +14,7 @@ import static org.junit.Assert.*;
 public class GameEngineTest {
 
     @Test
+    @Ignore
     public void testGenerateTicket() throws Exception {
 
         for (int c = 0; c < 1000000; c++) {
@@ -47,6 +49,7 @@ public class GameEngineTest {
 
 
     @Test
+    @Ignore
     public void testDraw() {
 
         Map<PrizeType, Integer> counts = new HashMap<>();

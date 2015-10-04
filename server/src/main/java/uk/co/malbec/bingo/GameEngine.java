@@ -195,7 +195,7 @@ public class GameEngine {
                 }
             }
 
-            assert values.size() == 3;
+
             Iterator<Integer> iterator = values.iterator();
 
             if (tupleOne.get(i)) {

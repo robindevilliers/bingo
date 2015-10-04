@@ -18,6 +18,7 @@ import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.Response;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -41,13 +42,15 @@ public class LoadTestApplication {
     public static class ListPlayResponse extends GenericType<List<PlayResponse>> {
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
+
+        File reportsDirectory = new File(format("%s/reports/%s", System.getProperty("user.dir"), System.currentTimeMillis()));
 
         Hound hound = new Hound()
                 .shutdownTime(now().plusMinutes(1));
 
         hound.configureReporter(HtmlReporter.class)
-                .setReportsDirectory(new File(format("%s/reports/%s", System.getProperty("user.dir"), System.currentTimeMillis())))
+                .setReportsDirectory(reportsDirectory)
                 .setDescription("Bingo performance test running 1000 users for 1 minute.")
                 .setExecuteTime(now());
 
@@ -66,6 +69,8 @@ public class LoadTestApplication {
 
 
         hound.waitFor();
+
+        new ProcessBuilder("chromium-browser", reportsDirectory.getAbsolutePath() + "/index.html").start();
     }
 
 

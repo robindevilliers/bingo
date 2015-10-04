@@ -31,12 +31,12 @@ repositories {
 }
 
 dependencies {
-    compile("org.springframework.boot:spring-boot-starter-web") {
+    compile("org.springframework.boot:spring-boot-starter-web:1.1.6.RELEASE") {
         exclude module: "spring-boot-starter-tomcat"
     }
 
-    compile("org.springframework.boot:spring-boot-starter-jetty")
-    compile("org.springframework.boot:spring-boot-starter-actuator")
+    compile("org.springframework.boot:spring-boot-starter-jetty:1.1.6.RELEASE")
+    compile("org.springframework.boot:spring-boot-starter-actuator:1.1.6.RELEASE")
 
     compile('joda-time:joda-time:2.5')
     compile('com.fasterxml.jackson.datatype:jackson-datatype-joda:2.5.4')
