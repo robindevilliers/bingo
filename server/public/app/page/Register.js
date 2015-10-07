@@ -9,17 +9,27 @@ var Register = React.createClass({
             password1: '',
             password2: '',
             cardNumber: '',
-            cardType: '',
+            cardType: 'Visa',
             expiryDate: '',
-            securityNumber: ''
+            securityNumber: '',
+            errorMessage: null,
+            errors: null
         };
     },
     componentDidMount: function() {
         this.listenTo(Actions.registerSubmit.failed, this.onRegisterFail);
     },
-    onRegisterFail: function(error) {
-        console.log('register failed')
-        console.log(error)
+    onRegisterFail: function(errors) {
+        if (error.errorCode == "TODO"){
+            this.setState({errorMessage: '...'});
+            this.setState({errors: null});
+        } else if (error.errorCode == "TODO"){
+           this.setState({errorMessage: '...'});
+           this.setState({errors: null});
+        } else if (error.errorCode == "CLIENT_INVALID_INPUT"){
+            this.setState({errors: error});
+            this.setState({errorMessage: null});
+        }
     },
     onSubmit: function() {
         Actions.registerSubmit({
@@ -40,6 +50,8 @@ var Register = React.createClass({
     render: function() {
         return (
             <form className="col-md-6">
+              <ErrorBanner errorMessage={this.state.errorMessage} />
+              <ValidationErrors errors={this.state.errors}/>
               <div className="panel panel-default well">
                 <div className="panel-heading">
                   <h3 className="panel-title">Personal details</h3>

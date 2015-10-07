@@ -15,9 +15,12 @@ var TopupStore = Reflux.createStore({
             success: function(data, status, xhr){
                 Actions.topupSubmit.success()
             },
-            error: function(xhr, status, error){
-                Actions.topupSubmit.failed({code: 'FAILED_TOPUP'})
-            }
+            error: GeneralErrorHandler(function(xhr, status, error){
+
+                Actions.topupSubmit.failed(xhr.responseJSON)
+
+
+            })
         });
     }
 });

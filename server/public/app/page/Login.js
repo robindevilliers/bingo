@@ -5,14 +5,24 @@ var Login = React.createClass({
         return {
             username: '',
             password: '',
+            errorMessage: null,
+            errors: null
         };
     },
     componentDidMount: function() {
         this.listenTo(Actions.loginSubmit.failed, this.onLoginFail);
     },
     onLoginFail: function(error) {
-        console.log('login failed')
-        console.log(error)
+        if (error.errorCode == "CLIENT_INVALID_CREDENTIALS"){
+            this.setState({errorMessage: 'Invalid username or password supplied.'});
+            this.setState({errors: null});
+        } else if (error.errorCode == "CLIENT_AUTHENTICATION_FAILURE_LIMIT_EXCEEDED"){
+           this.setState({errorMessage: 'Account locked.  Try again in 10 minutes'});
+           this.setState({errors: null});
+        } else if (error.errorCode == "CLIENT_INVALID_INPUT"){
+            this.setState({errors: error});
+            this.setState({errorMessage: null});
+        }
     },
     onSubmit: function() {
         Actions.loginSubmit({
@@ -28,6 +38,8 @@ var Login = React.createClass({
     render: function() {
         return (
             <form className="col-md-6">
+              <ErrorBanner errorMessage={this.state.errorMessage} />
+              <ValidationErrors errors={this.state.errors}/>
               <div className="form-group">
                 <label htmlFor="Username">Username</label>
                 <input type="username" onChange={this.handleChange} name="username" value={this.state.username} className="form-control" id="Username" placeholder="Username"/>

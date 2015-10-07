@@ -13,10 +13,12 @@ var ChatStore = Reflux.createStore({
             dataType: "json",
              data: JSON.stringify(data),
             success: function(data, status, xhr){
-                Actions.sendMessage.success(data)
+                Actions.sendMessage.success(data);
             },
             error: function(xhr, status, error){
-                //TODO - do failures at some point
+                if (xhr.responseJSON.errorCode == "SERVER_UNKNOWN_ERROR"){
+                    Actions.generalError(xhr.responseJSON);
+                }
             }
         });
     },
@@ -30,9 +32,9 @@ var ChatStore = Reflux.createStore({
             success: function(data, status, xhr){
                 Actions.pollMessages.success(data)
             },
-            error: function(xhr, status, error){
-                //TODO - do failures at some point
-            }
+            error: GeneralErrorHandler(function(xhr, status, error){
+                //TODO
+            })
         });
     }
 });

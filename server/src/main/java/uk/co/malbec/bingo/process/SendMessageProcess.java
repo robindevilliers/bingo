@@ -12,6 +12,7 @@ import uk.co.malbec.bingo.persistence.ChatRepository;
 import uk.co.malbec.bingo.present.request.SendMessageRequest;
 
 import javax.servlet.http.HttpSession;
+import javax.validation.Valid;
 
 @Controller
 public class SendMessageProcess {
@@ -19,8 +20,8 @@ public class SendMessageProcess {
     @Autowired
     private ChatRepository chatRepository;
 
-    @RequestMapping(value = "send-message", method = RequestMethod.POST)
-    public ResponseEntity sendMessage(@RequestBody() SendMessageRequest sendMessageRequest, HttpSession httpSession) {
+    @RequestMapping(value = "send-message", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
+    public ResponseEntity sendMessage(@Valid @RequestBody() SendMessageRequest sendMessageRequest, HttpSession httpSession) {
 
         chatRepository.addMessage(sendMessageRequest.getChatRoom(), new ChatMessage(sendMessageRequest.getUsername(), sendMessageRequest.getMessage()));
 

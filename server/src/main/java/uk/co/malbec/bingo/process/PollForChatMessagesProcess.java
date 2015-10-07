@@ -13,6 +13,7 @@ import uk.co.malbec.bingo.present.response.PollMessageResponse;
 import uk.co.malbec.bingo.present.response.PollMessagesResponse;
 
 import javax.servlet.http.HttpSession;
+import javax.validation.Valid;
 import java.util.List;
 
 import static java.util.stream.Collectors.toList;
@@ -24,8 +25,8 @@ public class PollForChatMessagesProcess {
     @Autowired
     private ChatRepository chatRepository;
 
-    @RequestMapping(value = "poll-messages", method = RequestMethod.POST)
-    public ResponseEntity<PollMessagesResponse> pollMessages(@RequestBody() PollMessagesRequest pollMessagesRequest, HttpSession httpSession) {
+    @RequestMapping(value = "poll-messages", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
+    public ResponseEntity<PollMessagesResponse> pollMessages(@Valid @RequestBody() PollMessagesRequest pollMessagesRequest, HttpSession httpSession) {
         List<PollMessageResponse> pollMessages = chatRepository.getChatMessagesAfterIndex(pollMessagesRequest.getChatRoom(), pollMessagesRequest.getMessageIndex())
                 .stream()
                 .map(toPollMessageResponse())

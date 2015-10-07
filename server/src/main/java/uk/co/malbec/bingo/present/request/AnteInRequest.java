@@ -1,13 +1,16 @@
 package uk.co.malbec.bingo.present.request;
 
 
+import javax.validation.constraints.NotNull;
 import java.util.Map;
 import java.util.UUID;
 
 public class AnteInRequest {
 
+    @NotNull
     private UUID gameId;
 
+    @NotNull
     private Map<Integer, Map<String, Boolean>> tickets;
 
     public AnteInRequest() {

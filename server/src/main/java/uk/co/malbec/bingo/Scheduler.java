@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import uk.co.malbec.bingo.model.Game;
 import uk.co.malbec.bingo.model.Play;
+import uk.co.malbec.bingo.persistence.LoginFailureCountRepository;
 import uk.co.malbec.bingo.persistence.PlaysRepository;
 
 import java.util.UUID;
@@ -19,6 +20,15 @@ public class Scheduler {
 
     @Autowired
     private GameEngine gameEngine;
+
+    @Autowired
+    private LoginFailureCountRepository loginFailureCountRepository;
+
+    @Scheduled(fixedRate = 3600000)
+    //@Scheduled(fixedRate = 1000)
+    public void purgeFailureCount(){
+        loginFailureCountRepository.purge();
+    }
 
     @Scheduled(fixedRate = 1000)
     public void run(){

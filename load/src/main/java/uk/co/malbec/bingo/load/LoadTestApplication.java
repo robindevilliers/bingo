@@ -33,6 +33,13 @@ import static uk.co.malbec.hound.Utils.pause;
 
 public class LoadTestApplication {
 
+    //TODO
+    //need a better system for debugging bad requests.
+    //sample and reports dirs should be the same name
+    //add bullet points to report.
+    //add configurable parameters (thresholds etc)
+
+
     private static Random randomGenerator = new Random();
 
     public enum BingoOperationType implements OperationType {
@@ -56,7 +63,7 @@ public class LoadTestApplication {
 
         configureOperations(hound);
 
-        range(1, 1000).forEach(i -> {
+        range(0, 1000).forEach(i -> {
             Client client = new ResteasyClientBuilder().connectionPoolSize(2).build();
             WebTarget target = client.target("http://localhost:8080");
 
@@ -79,7 +86,7 @@ public class LoadTestApplication {
                 .register(BingoOperationType.REGISTER, BingoServer.class, (bingo, context) -> {
                     Integer index = (Integer) context.getSession().get("index");
 
-                    of(bingo.post("register", new RegisterRequest("user@me.com", "user" + index, "password" + index, "12345678", "Visa", "08/19", "111")))
+                    of(bingo.post("register", new RegisterRequest("user@me.com", "username" + index, "password" + index, "1234567812345678", "Visa", "08/19", "111")))
                             .filter(isStatus(204)).orElseThrow(error("invalid registration"));
 
                     context.schedule(new Transition(BingoOperationType.ENTER_LOBBY, now()));

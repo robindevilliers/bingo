@@ -13,7 +13,7 @@ import javax.servlet.http.HttpSession;
 @Controller
 public class JoinPlayProcess {
 
-    @RequestMapping(value = "play", method = RequestMethod.POST)
+    @RequestMapping(value = "play", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
     public ResponseEntity joinPlay(@RequestBody String gameId, HttpSession session) {
 
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);

@@ -11,6 +11,7 @@ import uk.co.malbec.bingo.model.User;
 import uk.co.malbec.bingo.persistence.UsersRepository;
 
 import javax.servlet.http.HttpSession;
+import javax.validation.Valid;
 
 @Controller
 public class RegisterProcess {
@@ -18,8 +19,14 @@ public class RegisterProcess {
     @Autowired
     private UsersRepository usersRepository;
 
-    @RequestMapping(value = "register", method = RequestMethod.POST)
-    public ResponseEntity register(@RequestBody() RegisterRequest register, HttpSession httpSession) {
+    @RequestMapping(value = "register", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
+    public ResponseEntity register(@Valid @RequestBody() RegisterRequest register, HttpSession httpSession) {
+
+        //TODO
+        //email address already taken
+        //username already taken
+        //payments details invalid
+
 
         User user = new User(
                 register.getEmailAddress(),

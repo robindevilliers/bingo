@@ -7,6 +7,7 @@ var Application = React.createClass({
         this.listenTo(Actions.leavePlay, this.onDisplayLobby);
         this.listenTo(Actions.topup, this.onTopup);
         this.listenTo(Actions.displayLobby, this.onDisplayLobby);
+        this.listenTo(Actions.generalError, this.onError);
     },
     getInitialState: function() {
         return {
@@ -32,6 +33,11 @@ var Application = React.createClass({
             currentPage: 'topup'
         });
     },
+    onError: function(){
+        this.setState({
+            currentPage: 'error'
+        });
+    },
     render: function() {
 
         var pane = null;
@@ -48,6 +54,9 @@ var Application = React.createClass({
                 break;
             case 'topup':
                 pane = <Topup/>;
+                break;
+            case 'error':
+                pane = <Error/>;
                 break;
         }
 

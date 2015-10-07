@@ -12,6 +12,7 @@ import uk.co.malbec.bingo.model.User;
 import uk.co.malbec.bingo.persistence.UsersRepository;
 
 import javax.servlet.http.HttpSession;
+import javax.validation.Valid;
 
 @Controller
 public class TopupProcess {
@@ -19,8 +20,12 @@ public class TopupProcess {
     @Autowired
     private UsersRepository usersRepository;
 
-    @RequestMapping(value="topup", method = RequestMethod.POST)
-    public ResponseEntity register(@RequestBody() TopupRequest topup, HttpSession session) {
+    @RequestMapping(value="topup", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
+    public ResponseEntity register(@Valid @RequestBody() TopupRequest topup, HttpSession session) {
+
+
+        //TODO
+        //failure to transfer funds
 
         User user = (User) session.getAttribute("user");
 

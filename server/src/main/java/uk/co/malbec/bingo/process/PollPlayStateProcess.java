@@ -38,8 +38,13 @@ public class PollPlayStateProcess {
     @Autowired
     private GameEngine gameEngine;
 
-    @RequestMapping(value = "play", method = RequestMethod.GET)
+    @RequestMapping(value = "play", method = RequestMethod.GET, produces = "application/json; charset=utf-8")
     public ResponseEntity pollPlayState(@RequestParam("gameId") String gameId, HttpSession session) {
+
+        //TODO
+        //invalid game id
+
+
 
         User user = (User) session.getAttribute("user");
         //TODO - assign winnings should happen whenever a user is accessed.

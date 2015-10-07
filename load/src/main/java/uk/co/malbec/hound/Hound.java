@@ -46,7 +46,6 @@ public class Hound {
     private Reporter reporter;
 
     private int threadSize = 3000;
-    private String description;
 
     public Hound(){
 

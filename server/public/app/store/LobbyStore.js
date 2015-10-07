@@ -12,11 +12,14 @@ var LobbyStore = Reflux.createStore({
             url: "lobby",
             dataType: "json",
             success: function(data, status, xhr){
-                Actions.lobbyLoad.success(data)
+                Actions.lobbyLoad.success(data);
             },
-            error: function(xhr, status, error){
-                Actions.lobbyLoad.failed()
-            }
+            error: GeneralErrorHandler(function(xhr, status, error){
+
+                //TODO
+                Actions.lobbyLoad.failed();
+
+            })
         });
     }
 });

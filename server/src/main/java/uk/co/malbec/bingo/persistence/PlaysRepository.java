@@ -11,7 +11,7 @@ import static java.util.Collections.synchronizedMap;
 @Repository
 public class PlaysRepository {
 
-    private Map<UUID, Play> currentPlays = synchronizedMap(new HashMap<UUID, Play>());
+    private Map<UUID, Play> currentPlays = synchronizedMap(new HashMap<>());
 
     private Map<UUID, List<Play>> closedPlays = new HashMap<UUID, List<Play>>();
 

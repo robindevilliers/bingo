@@ -4,8 +4,6 @@ var RegisterStore = Reflux.createStore({
         this.listenTo(Actions.registerSubmit, 'registerSubmit');
     },
     registerSubmit: function(data) {
-
-
         $.ajax({
             method: "POST",
             contentType: "application/json",
@@ -15,9 +13,13 @@ var RegisterStore = Reflux.createStore({
             success: function(data, status, xhr){
                 Actions.registerSubmit.success()
             },
-            error: function(xhr, status, error){
-                Actions.registerSubmit.failed({code: 'USERNAME_TAKEN'})
-            }
+            error: GeneralErrorHandler(function(xhr, status, error, test){
+                if (xhr.responseJSON.errorCode == 'CLIENT_INVALID_INPUT'){
+                    Actions.registerSubmit.failed(xhr.responseJSON);
+                } else {
+                    //TODO
+                }
+            })
         });
     }
 });

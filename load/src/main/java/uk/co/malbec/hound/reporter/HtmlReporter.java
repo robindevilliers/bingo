@@ -9,14 +9,11 @@ import java.io.*;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.nio.file.Files.copy;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.sort;
-import static java.util.Optional.of;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.*;
 import static java.util.stream.IntStream.range;
 import static javax.json.stream.JsonGenerator.PRETTY_PRINTING;
@@ -353,7 +350,7 @@ public class HtmlReporter implements Reporter {
             InputStream is = HtmlReporter.class.getResourceAsStream("/template/" + fileName);
             copy(is, Paths.get(format("%s/%s", baseDirectory.getAbsolutePath(), fileName)));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("io error copying file " + fileName,e);
         }
     }
 
