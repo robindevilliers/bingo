@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.String.format;
+import static java.util.Collections.synchronizedList;
 import static java.util.stream.IntStream.range;
 import static uk.co.malbec.hound.Utils.pause;
 
@@ -28,7 +29,7 @@ The above times are acceptable.  And we have persistence with this sampler, so y
 */
 public class HybridSampler implements Sampler, Runnable {
 
-    private List[] collectors;
+    private final List<List<Sample>> collectors = synchronizedList(new ArrayList<>());
     private BufferedWriter fileWriter;
 
     private static final AtomicInteger nextId = new AtomicInteger(0);
@@ -43,32 +44,39 @@ public class HybridSampler implements Sampler, Runnable {
 
     private File dataDir;
 
-    private int threadSize;
-
-    public HybridSampler(int threadSize, File workingDir) {
-        this.threadSize = threadSize;
-        collectors = new List[threadSize];
-        dataDir = new File(workingDir, "data");
-
+    public HybridSampler setSampleDirectory(File dataDir) {
         if (!dataDir.isDirectory()) {
             dataDir.mkdirs();
         }
+        this.dataDir = dataDir;
         try {
-            fileWriter = new BufferedWriter(new PrintWriter(new File(dataDir, "sample.data")));
+            fileWriter = new BufferedWriter(new PrintWriter(new File(this.dataDir, "sample.data")));
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
         }
-
-        range(0, threadSize).forEach(i -> collectors[i] = new ArrayList<>());
-
         Thread thread = new Thread(this);
         thread.setDaemon(true);
         thread.start();
+        return this;
     }
 
     @Override
     public void addSample(String username, String operationName, DateTime start, DateTime end, String errorMessage) {
-        collectors[threadId.get() % threadSize].add(new Sample(errorMessage == null, username, operationName, start.getMillis(), end.getMillis(), errorMessage));
+        Sample sample = new Sample(errorMessage == null, username, operationName, start.getMillis(), end.getMillis(), errorMessage);
+        List<Sample> samples;
+        synchronized (collectors) {
+
+
+            while (collectors.size() <= threadId.get() + 1) {
+                samples = new ArrayList<>();
+                collectors.add(samples);
+            }
+            samples = collectors.get(threadId.get());
+        }
+        synchronized (samples){
+            samples.add(sample);
+        }
+
     }
 
 
@@ -76,13 +84,7 @@ public class HybridSampler implements Sampler, Runnable {
     public List<Sample> getAllSamples() {
         while (true) {
             synchronized (collectors) {
-                boolean stillHasSamples = false;
-                for (int i = 0; i < threadSize; i++) {
-                    if (!collectors[i].isEmpty()) {
-                        stillHasSamples = true;
-                    }
-                }
-                if (!stillHasSamples) {
+                if (!collectors.stream().filter(samples -> !samples.isEmpty()).findAny().isPresent()) {
                     break;
                 }
             }
@@ -121,28 +123,29 @@ public class HybridSampler implements Sampler, Runnable {
     public void run() {
 
         while (true) {
-            range(0, threadSize).forEach(i -> {
 
-                List samples = null;
+            range(0, collectors.size()).forEach(i -> {
+
+                List<Sample> samples = null;
                 synchronized (fileWriter) {
                     synchronized (collectors) {
 
-                        if (!collectors[i].isEmpty()) {
-                            samples = collectors[i];
-                            collectors[i] = new ArrayList();
+                        if (!collectors.get(i).isEmpty()) {
+                            samples = collectors.get(i);
+                            collectors.set(i, new ArrayList<>());
                         }
                     }
 
                     if (samples != null) {
-
-                        samples.stream().forEach(o -> {
-                            Sample sample = (Sample) o;
-                            try {
-                                fileWriter.write(format("%1d,%s, %s,%d,%d,%s%n", sample.isOk() ? 1 : 0, sample.getUsername(), sample.getOperationName(), sample.getStart(), sample.getEnd(), sample.isOk() ? "" : sample.getErrorMessage()));
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
+                        synchronized (samples) {
+                            samples.stream().forEach(sample -> {
+                                try {
+                                    fileWriter.write(format("%1d,%s, %s,%d,%d,%s%n", sample.isOk() ? 1 : 0, sample.getUsername(), sample.getOperationName(), sample.getStart(), sample.getEnd(), sample.isOk() ? "" : sample.getErrorMessage()));
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+                        }
                     }
                 }
             });

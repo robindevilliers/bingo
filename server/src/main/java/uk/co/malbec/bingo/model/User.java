@@ -1,13 +1,17 @@
 package uk.co.malbec.bingo.model;
 
 
+import org.springframework.data.annotation.Id;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class User {
 
     private String emailAddress;
 
+    @Id
     private String username;
 
     private String password;
@@ -24,6 +28,8 @@ public class User {
 
     private List<Winnings> winningsList = new ArrayList<>();
 
+    private UUID lock;
+
     public User(String emailAddress, String username, String password, String cardNumber, String cardType, String expiryDate, String securityNumber) {
         this.emailAddress = emailAddress;
         this.username = username;
@@ -32,6 +38,14 @@ public class User {
         this.cardType = cardType;
         this.expiryDate = expiryDate;
         this.securityNumber = securityNumber;
+    }
+
+    public UUID getLock() {
+        return lock;
+    }
+
+    public void clearLock() {
+        this.lock = null;
     }
 
     public String getEmailAddress() {

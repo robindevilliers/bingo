@@ -9,12 +9,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
-import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.joda.time.DateTime.now;
 import static uk.co.malbec.hound.Utils.pause;
 
@@ -34,8 +33,8 @@ public class Server extends Thread {
 
     private Runnable terminationCallback;
 
-    public Server(int threadSize, Map<OperationType, OperationRecord> operations, DateTime shutdownTime, Sampler sampler, Runnable terminationCallBack) {
-        executorService = newFixedThreadPool(threadSize);
+    public Server(Map<OperationType, OperationRecord> operations, DateTime shutdownTime, Sampler sampler, Runnable terminationCallBack) {
+        executorService = newCachedThreadPool();
         this.operations = operations;
         this.shutdownTime = shutdownTime;
         this.sampler = sampler;

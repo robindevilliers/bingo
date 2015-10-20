@@ -26,7 +26,6 @@ public class LoginProcess {
     @Autowired
     private LoginFailureCountRepository loginFailureCountRepository;
 
-
     @RequestMapping(value = "login", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
     public ResponseEntity login(@Valid @RequestBody() LoginRequest login, HttpSession httpSession) {
 
@@ -34,9 +33,9 @@ public class LoginProcess {
             return new ResponseEntity<>(new ErrorResponse(ErrorCode.CLIENT_AUTHENTICATION_FAILURE_LIMIT_EXCEEDED, null), HttpStatus.BAD_REQUEST);
         }
 
-        User user = usersRepository.get(login.getUsername());
+        User user = usersRepository.get_NoLock(login.getUsername());
         if (user != null && user.getPassword().equals(login.getPassword())) {
-            httpSession.setAttribute("user", user);
+            httpSession.setAttribute("user", user.getUsername());
             return new ResponseEntity(HttpStatus.NO_CONTENT);
         }
         loginFailureCountRepository.addFailure(login.getUsername());

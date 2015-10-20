@@ -24,51 +24,10 @@ import static uk.co.malbec.hound.Utils.map;
 @SuppressWarnings("ResultOfMethodCallIgnored")
 public class HtmlReporter implements Reporter {
 
-
-    public static void main(String[] args) throws Exception {
-
-        File reportsDir = new File(System.getProperty("user.dir") + "/reports/" + "1443564046075");
-        new File(reportsDir, "index.html").delete();
-        new File(reportsDir, "logo.gif").delete();
-        new File(reportsDir, "charts.js").delete();
-        new File(reportsDir, "profile.js").delete();
-        new File(reportsDir, "statistics.js").delete();
-        new File(reportsDir, "errors.js").delete();
-        new File(reportsDir, "jquery.min.js").delete();
-        new File(reportsDir, "underscore.js").delete();
-        new File(reportsDir, "highcharts.src.js").delete();
-        new File(reportsDir, "bootstrap.min.js").delete();
-        new File(reportsDir, "bootstrap.min.css").delete();
-        new File(reportsDir, "bootstrap.css.map").delete();
-        new File(reportsDir, "fonts/glyphicons-halflings-regular.eot").delete();
-        new File(reportsDir, "fonts/glyphicons-halflings-regular.svg").delete();
-        new File(reportsDir, "fonts/glyphicons-halflings-regular.ttf").delete();
-        new File(reportsDir, "fonts/glyphicons-halflings-regular.woff").delete();
-        new File(reportsDir, "fonts/glyphicons-halflings-regular.woff2").delete();
-
-
-        List<Sample> allSamples = new ArrayList<>();
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(new File(reportsDir, "data/sample.data"))));
-        String line = bufferedReader.readLine();
-        while (line != null) {
-
-            String[] tokens = line.split(",");
-            boolean error = tokens[0].equals("1");
-            String username = tokens[1];
-            String operationName = tokens[2];
-            long start = Long.parseLong(tokens[3]);
-            long end = Long.parseLong(tokens[4]);
-            String errorMessage = tokens.length == 6 ? tokens[5] : null;
-            allSamples.add(new Sample(error, username, operationName, start, end, errorMessage));
-            line = bufferedReader.readLine();
-        }
-
-        new HtmlReporter().setReportsDirectory(reportsDir).generate(allSamples);
-    }
-
     private File reportsDirectory = new File(format("%s/reports/%s", System.getProperty("user.dir"), System.currentTimeMillis()));
     private String description = "";
     private DateTime executeTime = now();
+    private List<String> bulletPoints = new ArrayList<>();
 
     private JsonBuilderFactory builderFactory = Json.createBuilderFactory(emptyMap());
     private JsonWriterFactory writerFactory = Json.createWriterFactory(map(PRETTY_PRINTING, true));
@@ -93,23 +52,36 @@ public class HtmlReporter implements Reporter {
         return this;
     }
 
+    public HtmlReporter addBulletPoint(String message) {
+        bulletPoints.add(message);
+        return this;
+    }
+
     @Override
     public void generate(List<Sample> allSamples) {
         try {
+
+            JsonArrayBuilder bullets = builderFactory.createArrayBuilder();
+            bulletPoints.forEach(bullets::add);
+
+            long durationInSeconds = obtainDurationOfTestInSeconds(allSamples);
 
             writeVariableAsFile(reportsDirectory,
                     "profile",
                     builderFactory.createObjectBuilder()
                             .add("description", description)
                             .add("executionTime", executeTime.getMillis())
+                            .add("durationInSeconds", durationInSeconds)
+                            .add("bulletPoints", bullets)
                             .build()
             );
+
 
 
             List<String> names = allSamples.stream().map(Sample::getOperationName).distinct().collect(toList());
             generateIndicatorData(reportsDirectory, allSamples);
             generateRequestTypesData(reportsDirectory, allSamples, names);
-            generateStatisticsData(reportsDirectory, allSamples, names);
+            generateStatisticsData(reportsDirectory, allSamples, names, durationInSeconds);
             generateErrorData(reportsDirectory, allSamples);
             generateResponseTimeDistributionsData(reportsDirectory, allSamples, names);
             generateUserActivityData(reportsDirectory, allSamples);
@@ -133,6 +105,21 @@ public class HtmlReporter implements Reporter {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private long obtainDurationOfTestInSeconds(List<Sample> allSamples){
+        long earliestTime = Long.MAX_VALUE;
+        long latestTime = 0;
+        for (Sample sample : allSamples){
+            if (sample.getStart() < earliestTime){
+                earliestTime = sample.getStart();
+            }
+            if (sample.getStart() > latestTime){
+                latestTime = sample.getStart();
+            }
+        }
+
+        return (latestTime - earliestTime) / 1000;
     }
 
     private void generateErrorData(File reportsDirectory, List<Sample> allSamples) throws Exception {
@@ -233,14 +220,14 @@ public class HtmlReporter implements Reporter {
         );
     }
 
-    private void generateStatisticsData(File reportsDirectory, List<Sample> allSamples, List<String> names) throws Exception {
+    private void generateStatisticsData(File reportsDirectory, List<Sample> allSamples, List<String> names, long durationInSeconds) throws Exception {
         JsonArrayBuilder rows = builderFactory.createArrayBuilder();
-        rows.add(generateStatisticsForRow("All", allSamples));
-        names.forEach(name -> rows.add(generateStatisticsForRow(name, allSamples.stream().filter(s -> s.getOperationName().equals(name)).collect(toList()))));
+        rows.add(generateStatisticsForRow("All", allSamples, durationInSeconds));
+        names.forEach(name -> rows.add(generateStatisticsForRow(name, allSamples.stream().filter(s -> s.getOperationName().equals(name)).collect(toList()), durationInSeconds)));
         writeVariableAsFile(reportsDirectory, "statistics", rows.build());
     }
 
-    private JsonArrayBuilder generateStatisticsForRow(String title, List<Sample> samples) {
+    private JsonArrayBuilder generateStatisticsForRow(String title, List<Sample> samples, long durationInSeconds) {
 
 
         List<Long> timeDistribution = new ArrayList<>();
@@ -248,7 +235,7 @@ public class HtmlReporter implements Reporter {
         long totalCount = 0;
         long good = 0;
         long bad = 0;
-        long min = 0;
+        long min = Long.MAX_VALUE;
         long max = 0;
         for (Sample sample : samples) {
 
@@ -285,7 +272,9 @@ public class HtmlReporter implements Reporter {
         double percentile99 = interpolateList(99, timeDistribution);
 
         Map<Long, Long> summary = samples.stream().map(s -> s.getStart() / 1000).collect(groupingBy(o -> o, counting()));
-        double requestsPerSecond = summary.values().stream().mapToDouble(a -> a).average().getAsDouble();
+        double totalRequests = summary.values().stream().mapToDouble(a -> a).sum();
+
+        double requestsPerSecond = totalRequests/durationInSeconds;
 
         return builderFactory.createArrayBuilder()
                 .add(title)
@@ -354,7 +343,7 @@ public class HtmlReporter implements Reporter {
         }
     }
 
-    public void writeVariableAsFile(File reportsDirectory, String variableName, JsonStructure data) throws Exception {
+    private void writeVariableAsFile(File reportsDirectory, String variableName, JsonStructure data) throws Exception {
         PrintWriter printWriter = new PrintWriter(new File(reportsDirectory, variableName + ".js"));
         printWriter.print("var " + variableName + " = ");
 

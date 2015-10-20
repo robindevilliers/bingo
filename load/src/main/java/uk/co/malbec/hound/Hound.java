@@ -6,10 +6,7 @@ import ch.qos.logback.classic.Logger;
 import org.joda.time.DateTime;
 import org.slf4j.LoggerFactory;
 import uk.co.malbec.hound.impl.*;
-import uk.co.malbec.hound.reporter.HtmlReporter;
-import uk.co.malbec.hound.sampler.HybridSampler;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -17,7 +14,6 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
-import static java.lang.String.format;
 import static org.joda.time.DateTime.now;
 import static uk.co.malbec.hound.Utils.pause;
 
@@ -46,16 +42,6 @@ public class Hound {
     private Reporter reporter;
 
     private int threadSize = 3000;
-
-    public Hound(){
-
-        File sampleDirectory = new File(format("%s/sample/%s", System.getProperty("user.dir"), System.currentTimeMillis()));
-        if (!sampleDirectory.isDirectory()) {
-            sampleDirectory.mkdirs();
-        }
-
-        sampler = new HybridSampler(threadSize, sampleDirectory);
-    }
 
     public <T> Hound register(OperationType operationType, Class<T> clz, Operation<T> operation) {
         operations.put(operationType, new OperationRecord(operation, clz));
@@ -87,6 +73,15 @@ public class Hound {
 
     }
 
+    public <Q extends Sampler> Q configureSampler(Class<Q> clazz) {
+        try {
+            sampler = clazz.newInstance();
+            return (Q) sampler;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public class Context {
         private Map<Class<?>, Supplier<?>> resourceSuppliers = new HashMap<Class<?>, Supplier<?>>();
 
@@ -108,7 +103,7 @@ public class Hound {
 
             boolean firstStart = false;
             if (server == null) {
-                server = new Server(threadSize, operations, shutdownTime, sampler, () -> {
+                server = new Server(operations, shutdownTime, sampler, () -> {
                     reporter.generate(sampler.getAllSamples());
                 });
                 firstStart = true;

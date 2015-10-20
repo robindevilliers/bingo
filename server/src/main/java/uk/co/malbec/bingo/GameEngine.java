@@ -11,13 +11,12 @@ import java.util.*;
 public class GameEngine {
 
     @Autowired
+    @SuppressWarnings("UnusedDeclaration")
     private UsersRepository usersRepository;
 
     private Random randomGenerator = new Random();
 
     public void draw(Play play) {
-
-        Game game = play.getGame();
 
         List<TicketWatcher> watchers = new ArrayList<>();
         for (Ticket ticket : play.getTickets()) {
@@ -97,7 +96,12 @@ public class GameEngine {
 
         //assign winnings.
         for (Map.Entry<String, Integer> entry: winnings.entrySet()){
-            usersRepository.get(entry.getKey()).addWinnings(new Winnings(entry.getValue(), play.getEndTime()));
+            User user = usersRepository.get_WaitForLock(entry.getKey());
+            try {
+                user.addWinnings(new Winnings(entry.getValue(), play.getEndTime()));
+            } finally {
+                usersRepository.save_ReleaseLock(user);
+            }
         }
 
     }
@@ -107,7 +111,7 @@ public class GameEngine {
         if (winnings.get(username) == null) {
             winnings.put(username, prizeAmount);
         } else {
-            winnings.put(username,winnings.get(username) + prizeAmount);
+            winnings.put(username,winnings.remove(username) + prizeAmount);
         }
     }
 

@@ -5,15 +5,15 @@ import org.joda.time.DateTime;
 
 import java.util.*;
 
-import static java.util.Collections.synchronizedMap;
-
 public class Play {
 
     private UUID id;
 
+    private UUID lock;
+
     private Game game;
 
-    private Map<String, Ticket> tickets = synchronizedMap(new HashMap<>());
+    private Map<String, Ticket> tickets = new HashMap<>();
 
     private DateTime startTime;
     private DateTime endTime;
@@ -26,9 +26,16 @@ public class Play {
         this.startTime = startTime;
     }
 
-
     public UUID getId() {
         return id;
+    }
+
+    public UUID getLock() {
+        return lock;
+    }
+
+    public void clearLock() {
+        this.lock = null;
     }
 
     public Game getGame() {
@@ -117,5 +124,4 @@ public class Play {
         int fourCornersPrize = getTotalPot()  / 2 / 10 / 20 / 20;
         return fourCornersPrize;
     }
-
 }

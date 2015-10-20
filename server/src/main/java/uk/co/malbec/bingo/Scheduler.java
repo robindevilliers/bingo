@@ -13,6 +13,7 @@ import uk.co.malbec.bingo.persistence.PlaysRepository;
 import java.util.UUID;
 
 @Component
+@SuppressWarnings({"UnusedDeclaration"})
 public class Scheduler {
 
     @Autowired
@@ -33,12 +34,12 @@ public class Scheduler {
     @Scheduled(fixedRate = 1000)
     public void run(){
 
-        for (Play play : playsRepository.getCurrentPlays()){
+        for (Play play : playsRepository.getCurrentPlays_NoLock()){
 
-            synchronized (play) {
+            playsRepository.waitForlock(play.getId());
+            try {
                 //a game just started
                 if (play.getStartTime().isBeforeNow() && play.getEndTime() == null) {
-
                     //if there are no players, skip the game and start a new game.
                     if (play.getTickets().isEmpty()) {
                         play.setEndTime(play.getStartTime());
@@ -46,18 +47,28 @@ public class Scheduler {
                         //valid game, so do a draw.
                         gameEngine.draw(play);
                     }
-
                 }
+            } finally {
+                playsRepository.save_ReleaseLock(play);
             }
+
         }
 
-        for (Play play : playsRepository.getCurrentPlays()){
-            if (play.getEndTime() != null && play.getEndTime().isBeforeNow()){
+        for (Play play : playsRepository.getCurrentPlays_NoLock()){
+
+            playsRepository.waitForlock(play.getId());
+
+            if (play.getEndTime() != null && play.getEndTime().isBeforeNow()) {
                 Game game = play.getGame();
 
-                playsRepository.addCurrentPlay(game.getId(), new Play(UUID.randomUUID(), game, DateTime.now().plusSeconds(game.getStagingTime())));
-                playsRepository.addClosedPlay(game.getId(), play);
+                playsRepository.removePlay_NoLock(play);
+                DateTime startTime = DateTime.now().plusSeconds(game.getStagingTime());
+                playsRepository.addCurrentPlay_NoLock(new Play(UUID.randomUUID(), game, startTime));
+                playsRepository.addClosedPlay_NoLock(game.getId(), play);
+            } else {
+                playsRepository.save_ReleaseLock(play);
             }
+
         }
 
     }

@@ -1,10 +1,13 @@
 package uk.co.malbec.bingo.model;
 
 
+import org.springframework.data.annotation.Id;
+
 import java.util.UUID;
 
 public class Game {
 
+    @Id
     private UUID id;
 
     private String title;

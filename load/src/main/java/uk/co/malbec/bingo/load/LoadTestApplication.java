@@ -1,6 +1,8 @@
 package uk.co.malbec.bingo.load;
 
 
+import com.mongodb.MongoClient;
+import com.mongodb.client.MongoDatabase;
 import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
 import uk.co.malbec.bingo.present.request.*;
 import uk.co.malbec.bingo.present.response.PlayResponse;
@@ -11,12 +13,12 @@ import uk.co.malbec.hound.Hound;
 import uk.co.malbec.hound.OperationType;
 import uk.co.malbec.hound.Transition;
 import uk.co.malbec.hound.reporter.HtmlReporter;
+import uk.co.malbec.hound.sampler.HybridSampler;
 
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.Response;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
@@ -29,16 +31,12 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static javax.ws.rs.client.Entity.entity;
 import static org.joda.time.DateTime.now;
-import static uk.co.malbec.hound.Utils.pause;
 
 public class LoadTestApplication {
 
     //TODO
     //need a better system for debugging bad requests.
-    //sample and reports dirs should be the same name
-    //add bullet points to report.
     //add configurable parameters (thresholds etc)
-
 
     private static Random randomGenerator = new Random();
 
@@ -51,14 +49,26 @@ public class LoadTestApplication {
 
     public static void main(String[] args) throws IOException {
 
+        MongoClient mongoClient = new MongoClient();
+        MongoDatabase db = mongoClient.getDatabase("bingo");
+        db.getCollection("user").drop();
+
         File reportsDirectory = new File(format("%s/reports/%s", System.getProperty("user.dir"), System.currentTimeMillis()));
 
         Hound hound = new Hound()
                 .shutdownTime(now().plusMinutes(1));
 
+        hound.configureSampler(HybridSampler.class)
+            .setSampleDirectory(new File(reportsDirectory, "data"));
+
         hound.configureReporter(HtmlReporter.class)
                 .setReportsDirectory(reportsDirectory)
-                .setDescription("Bingo performance test running 1000 users for 1 minute.")
+                .setDescription("Bingo performance test.")
+                .addBulletPoint("1000 users")
+                .addBulletPoint("5 minute")
+                .addBulletPoint("mongo locking")
+                .addBulletPoint("memory based chat")
+                .addBulletPoint("mongo all collections, fsynced persistence")
                 .setExecuteTime(now());
 
         configureOperations(hound);

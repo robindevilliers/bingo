@@ -1,31 +1,58 @@
 package uk.co.malbec.bingo.persistence;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
+import uk.co.malbec.bingo.model.Play;
 import uk.co.malbec.bingo.model.User;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.UUID;
+
+import static org.springframework.data.mongodb.core.FindAndModifyOptions.options;
+import static org.springframework.data.mongodb.core.query.Criteria.where;
+import static org.springframework.data.mongodb.core.query.Query.query;
+import static org.springframework.data.mongodb.core.query.Update.update;
+import static uk.co.malbec.bingo.Utilities.pause;
 
 @Repository
+@SuppressWarnings({"UnusedDeclaration"})
 public class UsersRepository {
 
-    private Map<String, User> users = new HashMap<>();
+    @Autowired
+    private MongoOperations mongoOperations;
 
-    {
-        users.put("robin", new User("robindevilliers@me.com", "robin", "lizard", "1234123412", "Visa", "04/18", "789"));
+    public void save_ReleaseLock(User user) {
+        user.clearLock();
+        mongoOperations.save(user);
+    }
 
-        for (int i = 0; i < 200; i++) {
-            String username = Integer.toString(i);
-            users.put(username, new User("robindevilliers@me.com", username, username, "1234123412", "Visa", "04/18", "789"));
+    public User get_WaitForLock(String username) {
+        UUID lockId = UUID.randomUUID();
+
+        User user = mongoOperations.findAndModify(
+                query(where("username").is(username).and("lock").is(null)),
+                update("lock", lockId),
+                options().returnNew(true),
+                User.class
+        );
+
+        while (user == null){
+
+            pause(50);
+
+            user = mongoOperations.findAndModify(
+                    query(where("username").is(username).and("lock").is(null)),
+                    update("lock", lockId),
+                    options().returnNew(true),
+                    User.class
+            );
         }
+        return user;
     }
 
-
-    public void add(User user) {
-        users.put(user.getUsername(), user);
-    }
-
-    public User get(String username) {
-        return users.get(username);
+    public User get_NoLock(String username) {
+        return mongoOperations.findOne(new Query(Criteria.where("username").is(username)), User.class);
     }
 }

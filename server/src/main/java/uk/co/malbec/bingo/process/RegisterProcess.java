@@ -38,9 +38,9 @@ public class RegisterProcess {
                 register.getSecurityNumber()
         );
 
-        usersRepository.add(user);
+        usersRepository.save_ReleaseLock(user);
 
-        httpSession.setAttribute("user", user);
+        httpSession.setAttribute("user", user.getUsername());
 
         return new ResponseEntity(HttpStatus.NO_CONTENT);
     }

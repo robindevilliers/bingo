@@ -3,6 +3,9 @@ $(function () {
     $('#executionTime').text(new Date(profile.executionTime). toLocaleString());
     $('#description').text(profile.description);
 
+    for (i = 0; i < profile.bulletPoints.length; i++) {
+        $("#bulletList").append("<li>" +  profile.bulletPoints[i] + "</li>");
+    }
 
     $('#indicatorPanel').highcharts({
         chart: {

@@ -27,11 +27,15 @@ public class TopupProcess {
         //TODO
         //failure to transfer funds
 
-        User user = (User) session.getAttribute("user");
 
         //assume some call to external system that transfers money
 
-        user.setWallet(user.getWallet() + Integer.parseInt(topup.getAmount()) * 100);
+        User user = usersRepository.get_WaitForLock((String) session.getAttribute("user"));
+        try {
+            user.setWallet(user.getWallet() + Integer.parseInt(topup.getAmount()) * 100);
+        } finally {
+            usersRepository.save_ReleaseLock(user);
+        }
 
         return new ResponseEntity(HttpStatus.NO_CONTENT);
     }
