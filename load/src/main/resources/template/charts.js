@@ -1,6 +1,7 @@
 $(function () {
 
     $('#executionTime').text(new Date(profile.executionTime). toLocaleString());
+    $('#executionDuration').text(profile.durationInSeconds + ' seconds');
     $('#description').text(profile.description);
 
     for (i = 0; i < profile.bulletPoints.length; i++) {
@@ -99,17 +100,16 @@ $(function () {
 
     if (_.isEmpty(errors)){
         $('#errorsPanel > table')
-                    .append("<tr><td>There are no errors</td><td></td><td></td></tr>");
+                    .append("<tr><td>There are no errors</td><td></td><td></td><td></td></tr>");
     } else {
         _.each(errors, function(el){
             var row = $('<tr>');
-            _.each(el, function(val){
-                row.append($('<td>').text(val))
-            });
+            row.append($('<td>').text(el[0]))
+            row.append($('<td>').text(el[1]))
+            row.append($('<td>').text(el[2]))
+            row.append($('<td>').append($('<a>').attr('href','error_' + el[3] + '.html').text('details')))
 
-
-            $('#errorsPanel > table')
-                .append(row);
+            $('#errorsPanel > table').append(row);
         });
     }
 

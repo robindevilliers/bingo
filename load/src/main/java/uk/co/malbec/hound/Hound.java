@@ -41,8 +41,6 @@ public class Hound {
 
     private Reporter reporter;
 
-    private int threadSize = 3000;
-
     public <T> Hound register(OperationType operationType, Class<T> clz, Operation<T> operation) {
         operations.put(operationType, new OperationRecord(operation, clz));
         return this;

@@ -10,11 +10,13 @@ import uk.co.malbec.bingo.present.response.PollMessageResponse;
 import uk.co.malbec.bingo.present.response.PollMessagesResponse;
 import uk.co.malbec.bingo.present.response.PollStateResponse;
 import uk.co.malbec.hound.Hound;
+import uk.co.malbec.hound.OperationException;
 import uk.co.malbec.hound.OperationType;
 import uk.co.malbec.hound.Transition;
 import uk.co.malbec.hound.reporter.HtmlReporter;
 import uk.co.malbec.hound.sampler.HybridSampler;
 
+import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.GenericType;
@@ -22,11 +24,9 @@ import javax.ws.rs.core.Response;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 import static java.lang.String.format;
-import static java.util.Optional.of;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static javax.ws.rs.client.Entity.entity;
@@ -35,8 +35,8 @@ import static org.joda.time.DateTime.now;
 public class LoadTestApplication {
 
     //TODO
-    //need a better system for debugging bad requests.
     //add configurable parameters (thresholds etc)
+    //add configurable replacement for session object
 
     private static Random randomGenerator = new Random();
 
@@ -59,13 +59,12 @@ public class LoadTestApplication {
                 .shutdownTime(now().plusMinutes(1));
 
         hound.configureSampler(HybridSampler.class)
-            .setSampleDirectory(new File(reportsDirectory, "data"));
+                .setSampleDirectory(new File(reportsDirectory, "data"));
 
         hound.configureReporter(HtmlReporter.class)
                 .setReportsDirectory(reportsDirectory)
                 .setDescription("Bingo performance test.")
                 .addBulletPoint("1000 users")
-                .addBulletPoint("5 minute")
                 .addBulletPoint("mongo locking")
                 .addBulletPoint("memory based chat")
                 .addBulletPoint("mongo all collections, fsynced persistence")
@@ -96,22 +95,33 @@ public class LoadTestApplication {
                 .register(BingoOperationType.REGISTER, BingoServer.class, (bingo, context) -> {
                     Integer index = (Integer) context.getSession().get("index");
 
-                    of(bingo.post("register", new RegisterRequest("user@me.com", "username" + index, "password" + index, "1234567812345678", "Visa", "08/19", "111")))
-                            .filter(isStatus(204)).orElseThrow(error("invalid registration"));
+                    bingo.post(
+                            "register",
+                            new RegisterRequest("user@me.com", "username" + index, "password" + index, "1234567812345678", "Visa", "08/19", "111"),
+                            204,
+                            "registration request failed"
+                    );
 
                     context.schedule(new Transition(BingoOperationType.ENTER_LOBBY, now()));
                 })
                 .register(BingoOperationType.LOGIN, BingoServer.class, (bingo, context) -> {
 
-                    of(bingo.post("login", new LoginRequest("robin", "lizard")))
-                            .filter(isStatus(204)).orElseThrow(error("invalid login"));
+                    bingo.post(
+                            "login",
+                            new LoginRequest("robin", "lizard")
+                            , 204, "login request failed"
+                    );
 
                     context.schedule(new Transition(BingoOperationType.ENTER_LOBBY, now()));
                 })
                 .register(BingoOperationType.ENTER_LOBBY, BingoServer.class, (bingo, context) -> {
 
-                    List<PlayResponse> plays = of(bingo.get("lobby"))
-                            .filter(isStatus(200)).map(r -> r.readEntity(new ListPlayResponse())).orElseThrow(error("invalid response code"));
+                    List<PlayResponse> plays = bingo.get(
+                            "lobby",
+                            200,
+                            "enter lobby request failed"
+                    ).readEntity(new ListPlayResponse());
+
 
                     List<PlayResponse> availableGames = plays
                             .stream()
@@ -128,8 +138,12 @@ public class LoadTestApplication {
                 })
                 .register(BingoOperationType.TOP_UP, BingoServer.class, (bingo, context) -> {
 
-                    of(bingo.post("topup", new TopupRequest("50")))
-                            .filter(isStatus(204)).orElseThrow(error("invalid topup"));
+                    bingo.post(
+                            "topup",
+                            new TopupRequest("50"),
+                            204,
+                            "topup request failed"
+                    );
 
                     context.schedule(new Transition(BingoOperationType.JOIN_PLAY, now()));
                 })
@@ -137,8 +151,12 @@ public class LoadTestApplication {
                     PlayResponse play = (PlayResponse) context.getSession().get("game");
                     context.trace("joining game " + play.getGame().getTitle());
 
-                    of(bingo.post("play", play.getGame().getId().toString()))
-                            .filter(isStatus(204)).orElseThrow(error("error joining game"));
+                    bingo.post(
+                            "play",
+                            play.getGame().getId().toString(),
+                            204,
+                            "join game request failed"
+                    );
 
                     context.schedule(new Transition(BingoOperationType.POLL_STATE, now().plusSeconds(1)));
                     context.schedule(new Transition(BingoOperationType.POLL_CHAT_MESSAGES, now().plusSeconds(randomGenerator.nextInt(40))));
@@ -146,8 +164,13 @@ public class LoadTestApplication {
                 .register(BingoOperationType.POLL_STATE, BingoServer.class, (bingo, context) -> {
                     PlayResponse play = (PlayResponse) context.getSession().get("game");
 
-                    PollStateResponse pollStateResponse = of(bingo.get("play", "gameId", play.getGame().getId().toString()))
-                            .filter(isStatus(200)).map(r -> r.readEntity(PollStateResponse.class)).orElseThrow(error("error polling game state"));
+                    PollStateResponse pollStateResponse = bingo.get(
+                            "play",
+                            "gameId",
+                            play.getGame().getId().toString(),
+                            200,
+                            "poll request failed"
+                    ).readEntity(PollStateResponse.class);
 
                     //test for the start of a new game
                     if (!pollStateResponse.getStartTime().equals(context.getSession().get("startTime"))) {
@@ -190,8 +213,12 @@ public class LoadTestApplication {
                         }});
                     }};
 
-                    of(bingo.post("play/ante-in", new AnteInRequest(play.getGame().getId(), tickets)))
-                            .filter(isStatus(200)).orElseThrow(error("error ante in"));
+                    bingo.post(
+                            "play/ante-in",
+                            new AnteInRequest(play.getGame().getId(), tickets),
+                            200,
+                            "ante-in request failed"
+                    );
                 })
                 .register(BingoOperationType.POLL_CHAT_MESSAGES, BingoServer.class, (bingo, context) -> {
                     PlayResponse play = (PlayResponse) context.getSession().get("game");
@@ -203,8 +230,12 @@ public class LoadTestApplication {
                         context.schedule(new Transition(BingoOperationType.SEND_CHAT_MESSAGE, now().plusSeconds(randomGenerator.nextInt(10) + 10)));
                     }
 
-                    PollMessagesResponse response = of(bingo.post("poll-messages", new PollMessagesRequest(messageIndex, play.getGame().getTitle())))
-                            .filter(isStatus(200)).map(r -> r.readEntity(PollMessagesResponse.class)).orElseThrow(error("error polling message state"));
+                    PollMessagesResponse response = bingo.post(
+                            "poll-messages",
+                            new PollMessagesRequest(messageIndex, play.getGame().getTitle()),
+                            200,
+                            "poll-messages request failed"
+                    ).readEntity(PollMessagesResponse.class);
 
                     response.getMessages()
                             .stream()
@@ -222,19 +253,15 @@ public class LoadTestApplication {
                     String message = "message " + context.getSession().get("messageIndex");
                     context.trace("message index " + context.getSession().get("messageIndex"));
 
-                    of(bingo.post("send-message", new SendMessageRequest(chatRoom, username, message)))
-                            .filter(isStatus(204)).orElseThrow(error("error sending message"));
+                    bingo.post(
+                            "send-message",
+                            new SendMessageRequest(chatRoom, username, message),
+                            204,
+                            "send-message request failed"
+                    );
 
                     context.schedule(new Transition(BingoOperationType.SEND_CHAT_MESSAGE, now().plusSeconds(randomGenerator.nextInt(10) + 10)));
                 });
-    }
-
-    public static Supplier<? extends RuntimeException> error(String message) {
-        return () -> new RuntimeException(message);
-    }
-
-    public static Predicate<? super Response> isStatus(int code) {
-        return r -> r.getStatus() == code;
     }
 
     public static class BingoServer {
@@ -244,16 +271,41 @@ public class LoadTestApplication {
             this.target = target;
         }
 
-        public Response post(String path, Object request) {
-            return target.path(path).request().post(entity(request, "application/json"));
+        public Response post(String path, Object request, int responseCode, String errorMessage) {
+            return execute(responseCode, errorMessage, target -> target.path(path).request().post(entity(request, "application/json")));
         }
 
-        public Response get(String path) {
-            return target.path(path).request().get();
+        public Response get(String path, int responseCode, String errorMessage) {
+            return execute(responseCode, errorMessage, target -> target.path(path).request().get());
         }
 
-        public Response get(String path, String name, String value) {
-            return target.path(path).queryParam(name, value).request().get();
+        public Response get(String path, String name, String value, int responseCode, String errorMessage) {
+            return execute(responseCode, errorMessage, target -> target.path(path).queryParam(name, value).request().get());
+        }
+
+        private Response execute(int responseCode, String errorMessage, Function<WebTarget, Response> function) {
+
+            try {
+                Response response = function.apply(target);
+                if (response.getStatus() != responseCode) {
+                    StringBuilder buffer = new StringBuilder();
+                    buffer.append(format("Status code expected should be %s but was %s\n", responseCode, response.getStatus()));
+                    buffer.append(format("HTTP %s\n", response.getStatus()));
+                    response.getHeaders().forEach((name, value) -> {
+                        buffer.append(format("%s: %s\n", name, value));
+                    });
+                    buffer.append("\n");
+                    String body = response.readEntity(String.class);
+                    if (body != null) {
+                        buffer.append(body);
+                    }
+
+                    throw new OperationException(errorMessage, buffer.toString());
+                }
+                return response;
+            } catch (ProcessingException e) {
+                throw new OperationException(errorMessage, e.getLocalizedMessage());
+            }
         }
     }
 }

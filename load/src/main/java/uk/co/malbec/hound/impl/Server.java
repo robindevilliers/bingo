@@ -2,6 +2,7 @@ package uk.co.malbec.hound.impl;
 
 
 import org.joda.time.DateTime;
+import uk.co.malbec.hound.OperationException;
 import uk.co.malbec.hound.OperationType;
 import uk.co.malbec.hound.Sampler;
 
@@ -70,14 +71,18 @@ public class Server extends Thread {
                 job.getOperationContext().trace("executing operation " + job.getTransition().getOperationType());
                 DateTime startTime = now();
                 String errorMessage = null;
+                String detailedErrorMessage = null;
                 try {
                     operationRecord.getOperation().execute(supplier.get(), job.getOperationContext());
+                } catch (OperationException e){
+                    errorMessage = e.getMessage();
+                    detailedErrorMessage = e.getDetailedMessage();
                 } catch (RuntimeException e) {
                     errorMessage = e.getMessage();
                 } finally {
                     DateTime endTime = now();
                     busyJobs.decrementAndGet();
-                    sampler.addSample(job.getOperationContext().getName(), job.getTransition().getOperationType().name(), startTime, endTime, errorMessage);
+                    sampler.addSample(job.getOperationContext().getName(), job.getTransition().getOperationType().name(), startTime, endTime, errorMessage, detailedErrorMessage);
                 }
             });
 

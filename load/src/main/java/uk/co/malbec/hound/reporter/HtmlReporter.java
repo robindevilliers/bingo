@@ -1,6 +1,7 @@
 package uk.co.malbec.hound.reporter;
 
 import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormat;
 import uk.co.malbec.hound.Reporter;
 import uk.co.malbec.hound.Sample;
 
@@ -9,6 +10,8 @@ import java.io.*;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.nio.file.Files.copy;
@@ -130,12 +133,38 @@ public class HtmlReporter implements Reporter {
 
 
         JsonArrayBuilder errors = builderFactory.createArrayBuilder();
+        final AtomicLong index = new AtomicLong(0);
         errorData.forEach((key, value) -> {
+
             JsonArrayBuilder error = builderFactory.createArrayBuilder();
             error.add(key);
             error.add(value);
             error.add(decimalFormat.format((double) value / total));
+            error.add(index.get());
+
             errors.add(error);
+
+            StringBuilder errorRows = new StringBuilder();
+            allSamples.forEach(sample -> {
+                if (sample.getErrorMessage().equals(key)){
+                    errorRows.append(format("<tr><td>%s</td><td>%s</td></tr>", DateTimeFormat.mediumDateTime().print(sample.getStart()), sample.getDetailedErrorMessage().replace("\n", "<br/>")));
+                }
+            });
+
+            BufferedReader buffer = new BufferedReader(new InputStreamReader(HtmlReporter.class.getResourceAsStream("/template/error.html" )));
+            String errorPage = buffer.lines().collect(Collectors.joining("\n")).replace("ERROR_MESSAGE", key).replace("ERROR_ROWS", errorRows.toString());
+
+            PrintWriter printWriter = null;
+            try {
+                printWriter = new PrintWriter(new File(reportsDirectory, "error_" + index.get() + ".html"));
+                printWriter.print(errorPage);
+                printWriter.flush();
+            } catch (FileNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+
+
+            index.incrementAndGet();
         });
         writeVariableAsFile(reportsDirectory, "errors", errors.build());
     }

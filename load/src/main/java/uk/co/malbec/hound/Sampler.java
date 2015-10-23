@@ -6,7 +6,7 @@ import java.util.List;
 
 public interface Sampler {
 
-    void addSample(String username, String operationName, DateTime start, DateTime end, String errorMessage);
+    void addSample(String username, String operationName, DateTime start, DateTime end, String errorMessage, String detailedErrorMessage);
 
     List<Sample> getAllSamples();
 }

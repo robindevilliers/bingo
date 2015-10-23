@@ -11,7 +11,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
-import static java.util.Arrays.stream;
 import static java.util.stream.IntStream.range;
 
 
@@ -71,11 +70,21 @@ public class FileStoreSampler implements Sampler {
     }
 
     @Override
-    public void addSample(String username, String operationName, DateTime start, DateTime end, String errorMessage) {
+    public void addSample(String username, String operationName, DateTime start, DateTime end, String errorMessage, String detailedErrorMessage) {
 
         BufferedWriter writer = collectors[threadId.get() % 100];
         try {
-            writer.write(format("%1d,%s,%s,%d,%d,%s%n", errorMessage != null ? 1 : 0, username, operationName, start.getMillis(), end.getMillis(), errorMessage == null ? "" : errorMessage));
+            writer.write(
+                    format("%1d,%s,%s,%d,%d,%s,%s%n",
+                            errorMessage != null ? 1 : 0,
+                            username,
+                            operationName,
+                            start.getMillis(),
+                            end.getMillis(),
+                            errorMessage == null ? "" : Base64.getEncoder().encodeToString(errorMessage.getBytes()),
+                            detailedErrorMessage == null ? "" : Base64.getEncoder().encodeToString(detailedErrorMessage.getBytes())
+                    )
+            );
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -97,8 +106,15 @@ public class FileStoreSampler implements Sampler {
                     String operationName = tokens[2];
                     long start = parseLong(tokens[3]);
                     long end = parseLong(tokens[4]);
-                    String errorMessage = tokens.length == 6 ? tokens[5]: null;
-                    allSamples.add(new Sample(error, username, operationName, start, end, errorMessage));
+                    String errorMessage = null;
+                    String detailedErrorMessage = null;
+                    if (tokens.length >= 6){
+                        errorMessage = tokens[5];
+                    }
+                    if (tokens.length >= 7){
+                        detailedErrorMessage = tokens[6];
+                    }
+                    allSamples.add(new Sample(error, username, operationName, start, end, errorMessage, detailedErrorMessage));
                     line = bufferedReader.readLine();
                 }
             } catch (IOException e) {

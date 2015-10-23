@@ -6,6 +6,7 @@ import uk.co.malbec.hound.Sampler;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -61,8 +62,8 @@ public class HybridSampler implements Sampler, Runnable {
     }
 
     @Override
-    public void addSample(String username, String operationName, DateTime start, DateTime end, String errorMessage) {
-        Sample sample = new Sample(errorMessage == null, username, operationName, start.getMillis(), end.getMillis(), errorMessage);
+    public void addSample(String username, String operationName, DateTime start, DateTime end, String errorMessage, String detailedErrorMessage) {
+        Sample sample = new Sample(errorMessage == null, username, operationName, start.getMillis(), end.getMillis(), errorMessage, detailedErrorMessage);
         List<Sample> samples;
         synchronized (collectors) {
 
@@ -73,7 +74,7 @@ public class HybridSampler implements Sampler, Runnable {
             }
             samples = collectors.get(threadId.get());
         }
-        synchronized (samples){
+        synchronized (samples) {
             samples.add(sample);
         }
 
@@ -107,8 +108,22 @@ public class HybridSampler implements Sampler, Runnable {
                 String operationName = tokens[2];
                 long start = Long.parseLong(tokens[3]);
                 long end = Long.parseLong(tokens[4]);
-                String errorMessage = tokens.length == 6 ? tokens[5] : null;
-                allSamples.add(new Sample(error, username, operationName, start, end, errorMessage));
+                String errorMessage = null;
+                String detailedErrorMessage = null;
+                if (tokens.length >= 6) {
+                    errorMessage = new String(Base64.getDecoder().decode(tokens[5]));
+                }
+                if (tokens.length >= 7) {
+                    detailedErrorMessage = new String(Base64.getDecoder().decode(tokens[6]));
+                }
+                allSamples.add(new Sample(error,
+                        username,
+                        operationName,
+                        start,
+                        end,
+                        errorMessage,
+                        detailedErrorMessage
+                ));
                 line = bufferedReader.readLine();
             }
         } catch (IOException e) {
@@ -140,7 +155,17 @@ public class HybridSampler implements Sampler, Runnable {
                         synchronized (samples) {
                             samples.stream().forEach(sample -> {
                                 try {
-                                    fileWriter.write(format("%1d,%s, %s,%d,%d,%s%n", sample.isOk() ? 1 : 0, sample.getUsername(), sample.getOperationName(), sample.getStart(), sample.getEnd(), sample.isOk() ? "" : sample.getErrorMessage()));
+                                    fileWriter.write(
+                                            format("%1d,%s, %s,%d,%d,%s,%s%n",
+                                                    sample.isOk() ? 1 : 0,
+                                                    sample.getUsername(),
+                                                    sample.getOperationName(),
+                                                    sample.getStart(),
+                                                    sample.getEnd(),
+                                                    sample.isOk() ? "" : Base64.getEncoder().encodeToString(sample.getErrorMessage().getBytes()),
+                                                    sample.getDetailedErrorMessage() == null ? "" : Base64.getEncoder().encodeToString(sample.getDetailedErrorMessage().getBytes())
+                                            )
+                                    );
                                 } catch (IOException e) {
                                     throw new RuntimeException(e);
                                 }

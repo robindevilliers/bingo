@@ -47,8 +47,8 @@ public class BucketedInMemorySampler implements Sampler {
     }
 
     @Override
-    public void addSample(String username, String operationName, DateTime start, DateTime end, String errorMessage) {
-        collectors[threadId.get() % 100].add(new Sample(errorMessage == null,username, operationName, start.getMillis(), end.getMillis(), errorMessage));
+    public void addSample(String username, String operationName, DateTime start, DateTime end, String errorMessage, String detailedErrorMessage) {
+        collectors[threadId.get() % 100].add(new Sample(errorMessage == null,username, operationName, start.getMillis(), end.getMillis(), errorMessage, detailedErrorMessage));
     }
 
     @Override

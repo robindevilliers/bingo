@@ -15,13 +15,16 @@ public class Sample {
 
     private String errorMessage;
 
-    public Sample(boolean ok, String username, String operationName, long start, long end, String errorMessage) {
+    private String detailedErrorMessage;
+
+    public Sample(boolean ok, String username, String operationName, long start, long end, String errorMessage, String detailedErrorMessage) {
         this.ok = ok;
         this.username = username;
         this.operationName = operationName;
         this.start = start;
         this.end = end;
         this.errorMessage = errorMessage;
+        this.detailedErrorMessage = detailedErrorMessage;
     }
 
     public boolean isOk() {
@@ -46,5 +49,9 @@ public class Sample {
 
     public String getErrorMessage() {
         return errorMessage;
+    }
+
+    public String getDetailedErrorMessage() {
+        return detailedErrorMessage;
     }
 }
