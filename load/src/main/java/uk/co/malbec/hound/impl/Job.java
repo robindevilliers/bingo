@@ -12,11 +12,11 @@ public class Job implements Comparable<Job> {
 
     private Transition transition;
 
-    private OperationContext operationContext;
+    private OperationContext<?> operationContext;
 
     private Map<Class<?>, Supplier<?>> resourceSuppliers;
 
-    public Job(Transition transition, OperationContext operationContext, Map<Class<?>, Supplier<?>> resourceSuppliers) {
+    public Job(Transition transition, OperationContext<?> operationContext, Map<Class<?>, Supplier<?>> resourceSuppliers) {
         this.transition = transition;
         this.operationContext = operationContext;
         this.resourceSuppliers = resourceSuppliers;
@@ -26,7 +26,7 @@ public class Job implements Comparable<Job> {
         return transition;
     }
 
-    public OperationContext getOperationContext() {
+    public OperationContext<?> getOperationContext() {
         return operationContext;
     }
 

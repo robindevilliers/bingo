@@ -5,10 +5,14 @@ import uk.co.malbec.hound.Sample;
 import uk.co.malbec.hound.Sampler;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 import static java.lang.String.format;
 import static java.util.Collections.synchronizedList;
@@ -45,6 +49,7 @@ public class HybridSampler implements Sampler, Runnable {
 
     private File dataDir;
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     public HybridSampler setSampleDirectory(File dataDir) {
         if (!dataDir.isDirectory()) {
             dataDir.mkdirs();
@@ -62,6 +67,7 @@ public class HybridSampler implements Sampler, Runnable {
     }
 
     @Override
+    @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
     public void addSample(String username, String operationName, DateTime start, DateTime end, String errorMessage, String detailedErrorMessage) {
         Sample sample = new Sample(errorMessage == null, username, operationName, start.getMillis(), end.getMillis(), errorMessage, detailedErrorMessage);
         List<Sample> samples;
@@ -80,9 +86,8 @@ public class HybridSampler implements Sampler, Runnable {
 
     }
 
-
-    @Override
-    public List<Sample> getAllSamples() {
+    @SuppressWarnings("SynchronizeOnNonFinalField")
+    public Stream<Sample> stream() throws IOException {
         while (true) {
             synchronized (collectors) {
                 if (!collectors.stream().filter(samples -> !samples.isEmpty()).findAny().isPresent()) {
@@ -91,50 +96,40 @@ public class HybridSampler implements Sampler, Runnable {
             }
             pause(500);
         }
-
-        List<Sample> allSamples = new ArrayList<>();
-
-        try {
-            synchronized (fileWriter) {
-                fileWriter.close();
-            }
-            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(new File(dataDir, "sample.data"))));
-            String line = bufferedReader.readLine();
-            while (line != null) {
-
-                String[] tokens = line.split(",");
-                boolean error = tokens[0].equals("1");
-                String username = tokens[1];
-                String operationName = tokens[2];
-                long start = Long.parseLong(tokens[3]);
-                long end = Long.parseLong(tokens[4]);
-                String errorMessage = null;
-                String detailedErrorMessage = null;
-                if (tokens.length >= 6) {
-                    errorMessage = new String(Base64.getDecoder().decode(tokens[5]));
-                }
-                if (tokens.length >= 7) {
-                    detailedErrorMessage = new String(Base64.getDecoder().decode(tokens[6]));
-                }
-                allSamples.add(new Sample(error,
-                        username,
-                        operationName,
-                        start,
-                        end,
-                        errorMessage,
-                        detailedErrorMessage
-                ));
-                line = bufferedReader.readLine();
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        synchronized (fileWriter) {
+            fileWriter.close();
         }
 
-        return allSamples;
+        Path path = Paths.get(dataDir.getAbsolutePath(), "sample.data");
+
+        return Files.lines(path).map(line -> {
+            String[] tokens = line.split(",");
+            boolean error = tokens[0].equals("1");
+            String username = tokens[1];
+            String operationName = tokens[2];
+            long start = Long.parseLong(tokens[3]);
+            long end = Long.parseLong(tokens[4]);
+            String errorMessage = null;
+            String detailedErrorMessage = null;
+            if (tokens.length >= 6) {
+                errorMessage = new String(Base64.getDecoder().decode(tokens[5]));
+            }
+            if (tokens.length >= 7) {
+                detailedErrorMessage = new String(Base64.getDecoder().decode(tokens[6]));
+            }
+            return new Sample(error,
+                    username,
+                    operationName,
+                    start,
+                    end,
+                    errorMessage,
+                    detailedErrorMessage
+            );
+        });
     }
 
-
     @Override
+    @SuppressWarnings({"SynchronizeOnNonFinalField", "SynchronizationOnLocalVariableOrMethodParameter", "InfiniteLoopStatement"})
     public void run() {
 
         while (true) {

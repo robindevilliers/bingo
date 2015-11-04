@@ -5,6 +5,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import org.joda.time.DateTime;
 import org.slf4j.LoggerFactory;
+import uk.co.malbec.bingo.load.LoadTestApplication;
 import uk.co.malbec.hound.impl.*;
 
 import java.util.ArrayList;
@@ -17,7 +18,7 @@ import java.util.function.Supplier;
 import static org.joda.time.DateTime.now;
 import static uk.co.malbec.hound.Utils.pause;
 
-public class Hound {
+public class Hound<U> {
 
     Logger apache = (Logger) LoggerFactory.getLogger("org.apache.http");
 
@@ -41,7 +42,7 @@ public class Hound {
 
     private Reporter reporter;
 
-    public <T> Hound register(OperationType operationType, Class<T> clz, Operation<T> operation) {
+    public <T> Hound<U> register(OperationType operationType, Class<T> clz, Operation<T, U> operation) {
         operations.put(operationType, new OperationRecord(operation, clz));
         return this;
     }
@@ -55,11 +56,11 @@ public class Hound {
         }
     }
 
-    public Context createUser() {
-        return new Context();
+    public Context createUser(U user) {
+        return new Context(user);
     }
 
-    public Hound shutdownTime(DateTime shutdownTime) {
+    public Hound<U> shutdownTime(DateTime shutdownTime) {
         this.shutdownTime = shutdownTime;
         return this;
     }
@@ -68,7 +69,6 @@ public class Hound {
         while (server.isAlive()){
             pause(50);
         }
-
     }
 
     public <Q extends Sampler> Q configureSampler(Class<Q> clazz) {
@@ -83,17 +83,16 @@ public class Hound {
     public class Context {
         private Map<Class<?>, Supplier<?>> resourceSuppliers = new HashMap<Class<?>, Supplier<?>>();
 
-        private Map<String, Object> session = new HashMap<>();
+        private U session;
 
         private List<BiConsumer<String, String>> traceLoggers = new ArrayList<>();
 
-        public <T> Context registerSupplier(Class<T> clazz, Supplier<T> supplier) {
-            resourceSuppliers.put(clazz, supplier);
-            return this;
+        public Context(U session){
+            this.session = session;
         }
 
-        public Context addToSession(String key, Object value) {
-            session.put(key, value);
+        public <T> Context registerSupplier(Class<T> clazz, Supplier<T> supplier) {
+            resourceSuppliers.put(clazz, supplier);
             return this;
         }
 
@@ -102,12 +101,12 @@ public class Hound {
             boolean firstStart = false;
             if (server == null) {
                 server = new Server(operations, shutdownTime, sampler, () -> {
-                    reporter.generate(sampler.getAllSamples());
+                    reporter.generate(sampler);
                 });
                 firstStart = true;
             }
 
-            new OperationContext(name, server.getQueue(), resourceSuppliers, session, traceLoggers).schedule(transition);
+            new OperationContext<>(name, server.getQueue(), resourceSuppliers, session, traceLoggers).schedule(transition);
 
             if (firstStart) {
                 server.start();

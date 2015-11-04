@@ -1,5 +1,5 @@
 package uk.co.malbec.hound;
 
-public interface Operation<T> {
-    public void execute(T resource, OperationContext operationContext);
+public interface Operation<T, U> {
+    public void execute(T resource, OperationContext<U> operationContext);
 }

@@ -24,6 +24,8 @@ dependencies {
     compile 'javax.json:javax.json-api:1.0'
     compile 'org.glassfish:javax.json:1.0.4'
 
+    testCompile("junit:junit:4.11")
+
 }
 
 

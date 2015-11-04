@@ -1,6 +1,5 @@
 package uk.co.malbec.hound;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,7 +21,7 @@ public class Utils {
 
     public static double interpolateList(int point, List<Long> times) {
 
-        double run = (double) 100 / times.size();
+        double run = (double) 100 / (times.size()-1);
 
         int lowIndex = 0;
         int currentIndex = 0;
@@ -31,8 +30,8 @@ public class Utils {
             currentIndex++;
         }
         int highIndex = currentIndex;
-        long low = times.get(lowIndex - 1);
-        long high = times.get(highIndex - 1);
+        long low = times.get(lowIndex );
+        long high = times.get(highIndex );
 
         return linearInterpolate(lowIndex, low, highIndex, high, point) + low;
 

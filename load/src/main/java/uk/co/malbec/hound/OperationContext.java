@@ -12,9 +12,9 @@ import java.util.function.Supplier;
 import static java.util.Collections.synchronizedMap;
 import static org.joda.time.DateTime.now;
 
-public class OperationContext<T> {
+public class OperationContext<U> {
 
-    private Map<String, Object> session;
+    private U session;
 
     private Map<Class<?>, Supplier<?>> resourceSuppliers;
 
@@ -24,11 +24,11 @@ public class OperationContext<T> {
 
     private List<BiConsumer<String, String>> traceLoggers;
 
-    public OperationContext(String name, Queue<Job> queue, Map<Class<?>, Supplier<?>> resourceSuppliers, Map<String, Object> session, List<BiConsumer<String, String>> traceLoggers) {
+    public OperationContext(String name, Queue<Job> queue, Map<Class<?>, Supplier<?>> resourceSuppliers, U session, List<BiConsumer<String, String>> traceLoggers) {
         this.queue = queue;
         this.name = name;
         this.resourceSuppliers = resourceSuppliers;
-        this.session = synchronizedMap(session);
+        this.session = session;
         this.traceLoggers = traceLoggers;
     }
 
@@ -40,7 +40,7 @@ public class OperationContext<T> {
         traceLoggers.forEach(logger -> logger.accept(name, message));
     }
 
-    public Map<String, Object> getSession() {
+    public U getSession() {
         return session;
     }
 

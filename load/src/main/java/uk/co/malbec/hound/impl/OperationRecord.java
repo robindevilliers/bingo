@@ -3,21 +3,21 @@ package uk.co.malbec.hound.impl;
 
 import uk.co.malbec.hound.Operation;
 
-public class OperationRecord {
+public class OperationRecord<T> {
 
-    private Operation operation;
-    private Class<?> clazz;
+    private Operation<T,?> operation;
+    private Class<T> clazz;
 
-    public OperationRecord(Operation operation, Class<?> clazz) {
+    public OperationRecord(Operation<T,?> operation, Class<T> clazz) {
         this.operation = operation;
         this.clazz = clazz;
     }
 
-    public Operation getOperation() {
+    public Operation<T,?> getOperation() {
         return operation;
     }
 
-    public Class<?> getClazz() {
+    public Class<T> getClazz() {
         return clazz;
     }
 }

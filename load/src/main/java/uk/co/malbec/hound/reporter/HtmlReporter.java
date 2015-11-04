@@ -4,27 +4,36 @@ import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import uk.co.malbec.hound.Reporter;
 import uk.co.malbec.hound.Sample;
+import uk.co.malbec.hound.Sampler;
+import uk.co.malbec.hound.reporter.machinery.*;
 
 import javax.json.*;
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.lang.String.format;
 import static java.nio.file.Files.copy;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.sort;
-import static java.util.stream.Collectors.*;
+import static java.util.function.Function.identity;
 import static java.util.stream.IntStream.range;
 import static javax.json.stream.JsonGenerator.PRETTY_PRINTING;
 import static org.joda.time.DateTime.now;
 import static uk.co.malbec.hound.Utils.interpolateList;
 import static uk.co.malbec.hound.Utils.map;
+import static uk.co.malbec.hound.reporter.machinery.Machinery.*;
+import static uk.co.malbec.hound.reporter.machinery.Machinery.limit;
 
-@SuppressWarnings("ResultOfMethodCallIgnored")
 public class HtmlReporter implements Reporter {
 
     private File reportsDirectory = new File(format("%s/reports/%s", System.getProperty("user.dir"), System.currentTimeMillis()));
@@ -36,8 +45,8 @@ public class HtmlReporter implements Reporter {
     private JsonWriterFactory writerFactory = Json.createWriterFactory(map(PRETTY_PRINTING, true));
     private DecimalFormat decimalFormat = new DecimalFormat("#####0.0000");
 
-
-    public HtmlReporter setReportsDirectory(File reportsDirectory){
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    public HtmlReporter setReportsDirectory(File reportsDirectory) {
         if (!reportsDirectory.isDirectory()) {
             reportsDirectory.mkdirs();
         }
@@ -45,12 +54,12 @@ public class HtmlReporter implements Reporter {
         return this;
     }
 
-    public HtmlReporter setDescription(String description){
+    public HtmlReporter setDescription(String description) {
         this.description = description;
         return this;
     }
 
-    public HtmlReporter setExecuteTime(DateTime executeTime){
+    public HtmlReporter setExecuteTime(DateTime executeTime) {
         this.executeTime = executeTime;
         return this;
     }
@@ -60,34 +69,47 @@ public class HtmlReporter implements Reporter {
         return this;
     }
 
+
+
     @Override
-    public void generate(List<Sample> allSamples) {
+    public void generate(Sampler sampler) {
+
+        Data data = new Data();
+
         try {
+            sampler.stream().forEach(new FirstPassProcessor(data)::accept);
+        } catch (IOException e) {
+            throw new RuntimeException("error reading samples", e);
+        }
+
+        try {
+            sampler.stream().forEach(new SecondPassProcessor(data)::accept);
+        } catch (IOException e) {
+            throw new RuntimeException("error reading samples", e);
+        }
+
+        try {
+
+            long duration = (data.getLatestStartTime().getValue() - data.getEarliestStartTime().getValue()) / 1000;
 
             JsonArrayBuilder bullets = builderFactory.createArrayBuilder();
             bulletPoints.forEach(bullets::add);
-
-            long durationInSeconds = obtainDurationOfTestInSeconds(allSamples);
-
             writeVariableAsFile(reportsDirectory,
                     "profile",
                     builderFactory.createObjectBuilder()
                             .add("description", description)
                             .add("executionTime", executeTime.getMillis())
-                            .add("durationInSeconds", durationInSeconds)
+                            .add("durationInSeconds", duration)
                             .add("bulletPoints", bullets)
                             .build()
             );
 
-
-
-            List<String> names = allSamples.stream().map(Sample::getOperationName).distinct().collect(toList());
-            generateIndicatorData(reportsDirectory, allSamples);
-            generateRequestTypesData(reportsDirectory, allSamples, names);
-            generateStatisticsData(reportsDirectory, allSamples, names, durationInSeconds);
-            generateErrorData(reportsDirectory, allSamples);
-            generateResponseTimeDistributionsData(reportsDirectory, allSamples, names);
-            generateUserActivityData(reportsDirectory, allSamples);
+            generateIndicatorData(reportsDirectory, data.getIndicatorCategories());
+            generateRequestTypesData(reportsDirectory, data.getOperationNameCategories());
+            generateStatisticsData(reportsDirectory, data.getOperationNameCategories(), data.getStatistics(), duration);
+            generateErrorData(reportsDirectory, data.getStatistics(), data.getErrorMessageCategories());
+            generateResponseTimeDistributionsData(reportsDirectory, data.getOperationNameCategories(), data.getStatistics());
+            generateUserActivityData(reportsDirectory, data.getTimeDistributionCategories());
 
             File fontsDirectory = new File(reportsDirectory, "fonts");
             fontsDirectory.mkdir();
@@ -110,49 +132,40 @@ public class HtmlReporter implements Reporter {
         }
     }
 
-    private long obtainDurationOfTestInSeconds(List<Sample> allSamples){
-        long earliestTime = Long.MAX_VALUE;
-        long latestTime = 0;
-        for (Sample sample : allSamples){
-            if (sample.getStart() < earliestTime){
-                earliestTime = sample.getStart();
-            }
-            if (sample.getStart() > latestTime){
-                latestTime = sample.getStart();
-            }
-        }
-
-        return (latestTime - earliestTime) / 1000;
+    public static Long time(Sample sample) {
+        return sample.getEnd() - sample.getStart();
     }
 
-    private void generateErrorData(File reportsDirectory, List<Sample> allSamples) throws Exception {
+    public static Long startSecond(Sample sample) {
+        return sample.getStart() / 1000;
+    }
 
-        Map<String, Long> errorData = allSamples.stream().filter(s -> !s.isOk()).collect(groupingBy(Sample::getErrorMessage, counting()));
-
-        Long total = errorData.values().stream().collect(reducing(Long::sum)).orElse(0L);
-
+    private void generateErrorData(File reportsDirectory, Statistics statistics,
+                                   CategoryGroup<String, ErrorSummary> errorMessageCategories
+    ) throws Exception {
 
         JsonArrayBuilder errors = builderFactory.createArrayBuilder();
         final AtomicLong index = new AtomicLong(0);
-        errorData.forEach((key, value) -> {
+        errorMessageCategories.getKeys().forEach(errorMessage -> {
 
             JsonArrayBuilder error = builderFactory.createArrayBuilder();
-            error.add(key);
-            error.add(value);
-            error.add(decimalFormat.format((double) value / total));
+            error.add(errorMessage);
+            error.add(errorMessageCategories.get(errorMessage).getTotalCount().getValue());
+            error.add(decimalFormat.format((double) errorMessageCategories.get(errorMessage).getTotalCount().getValue() / statistics.getBad().getValue()));
             error.add(index.get());
 
             errors.add(error);
 
             StringBuilder errorRows = new StringBuilder();
-            allSamples.forEach(sample -> {
-                if (sample.getErrorMessage().equals(key)){
+
+            errorMessageCategories.get(errorMessage).getErrors().getValues().forEach(sample -> {
+                if (errorMessage.equals(sample.getErrorMessage())) {
                     errorRows.append(format("<tr><td>%s</td><td>%s</td></tr>", DateTimeFormat.mediumDateTime().print(sample.getStart()), sample.getDetailedErrorMessage().replace("\n", "<br/>")));
                 }
             });
 
-            BufferedReader buffer = new BufferedReader(new InputStreamReader(HtmlReporter.class.getResourceAsStream("/template/error.html" )));
-            String errorPage = buffer.lines().collect(Collectors.joining("\n")).replace("ERROR_MESSAGE", key).replace("ERROR_ROWS", errorRows.toString());
+            BufferedReader buffer = new BufferedReader(new InputStreamReader(HtmlReporter.class.getResourceAsStream("/template/error.html")));
+            String errorPage = buffer.lines().collect(Collectors.joining("\n")).replace("ERROR_MESSAGE", errorMessage).replace("ERROR_ROWS", errorRows.toString());
 
             PrintWriter printWriter = null;
             try {
@@ -169,70 +182,39 @@ public class HtmlReporter implements Reporter {
         writeVariableAsFile(reportsDirectory, "errors", errors.build());
     }
 
-
-    private void generateUserActivityData(File reportsDirectory, List<Sample> allSamples) throws Exception {
-        Map<Long, Integer> userCountGroupedByStartTime = allSamples.stream().collect(
-                groupingBy(
-                        s -> s.getStart() / 1000,
-                        collectingAndThen(
-                                groupingBy(Sample::getUsername, counting()),
-                                Map::size
-                        )
-                )
-        );
-
+    private void generateUserActivityData(File reportsDirectory, CategoryGroup<Long, CategoryGroup<String, Scalar<Long>>> timeDistributionCategories) throws Exception {
         JsonArrayBuilder series = builderFactory.createArrayBuilder();
-
-        userCountGroupedByStartTime.keySet()
+        timeDistributionCategories.getKeys()
                 .stream()
                 .sorted()
                 .forEach(key -> series.add(builderFactory.createArrayBuilder()
                                 .add(key * 1000)
-                                .add(userCountGroupedByStartTime.get(key)))
+                                .add(timeDistributionCategories.get(key).getKeys().size()))
                 );
 
         writeVariableAsFile(reportsDirectory, "userActivity",
                 series.build()
         );
-
     }
 
-    private List<Sample> getRidOfOutliers(List<Sample> samples) {
-        List<Long> times = samples.stream().map(s -> s.getEnd() - s.getStart()).sorted().collect(toList());
-
-        double percentile1 = interpolateList(1, times);
-        double percentile99 = interpolateList(99, times);
-
-        return samples.stream().filter(s -> {
-            long time = s.getEnd() - s.getStart();
-            return percentile1 < time && time < percentile99;
-        }).collect(toList());
-
-    }
-
-    private void generateResponseTimeDistributionsData(File reportsDirectory, List<Sample> allSamples, List<String> names) throws Exception {
-
-        List<Sample> samples = getRidOfOutliers(allSamples);
-        List<Long> times = samples.stream().map(s -> s.getEnd() - s.getStart()).collect(toList());
-        Long max = times.stream().max(Comparator.<Long>naturalOrder()).get();
-        Long min = times.stream().min(Comparator.<Long>naturalOrder()).get();
+    private void generateResponseTimeDistributionsData(
+            File reportsDirectory,
+            CategoryGroup<String, Statistics> operationNameCategories,
+            Statistics statistics
+    ) throws Exception {
 
         JsonArrayBuilder categories = builderFactory.createArrayBuilder();
-        range(0, (int) (max - min) / 10).forEach(i -> categories.add("" + (i * 10) + "ms"));
+        range(0, (int) (statistics.getMaximumTime().getValue() - statistics.getMinimumTime().getValue()) / 10).forEach(i -> categories.add("" + (i * 10) + "ms"));
 
         JsonArrayBuilder distributions = builderFactory.createArrayBuilder();
-
-
-        names.forEach(name -> {
-
-            List<Long> specificTimes = allSamples.stream().filter(s -> s.getOperationName().equals(name)).map(s -> s.getEnd() - s.getStart()).collect(toList());
+        operationNameCategories.getKeys().forEach(name -> {
+            List<Long> timeDistribution = operationNameCategories.get(name).getTimeDistribution().getValues();
 
             JsonArrayBuilder values = builderFactory.createArrayBuilder();
-            range(0, (int) (max - min) / 10).forEach(i -> {
-                long count = specificTimes.stream().filter(j -> (i * 10 + min) <= j && ((i * 10) + 10 + min) > j).count();
+            range(0, (int) (statistics.getMaximumTime().getValue() - statistics.getMinimumTime().getValue()) / 10).forEach(i -> {
+                long count = timeDistribution.stream().filter(j -> (i * 10 + statistics.getMinimumTime().getValue()) <= j && ((i * 10) + 10 + statistics.getMinimumTime().getValue()) > j).count();
                 values.add(count);
             });
-
 
             distributions.add(
                     builderFactory.createObjectBuilder()
@@ -249,81 +231,44 @@ public class HtmlReporter implements Reporter {
         );
     }
 
-    private void generateStatisticsData(File reportsDirectory, List<Sample> allSamples, List<String> names, long durationInSeconds) throws Exception {
+    private void generateStatisticsData(File reportsDirectory,
+                                        CategoryGroup<String, Statistics> operationNameCategories,
+                                        Statistics statistics,
+                                        long duration
+    ) throws Exception {
         JsonArrayBuilder rows = builderFactory.createArrayBuilder();
-        rows.add(generateStatisticsForRow("All", allSamples, durationInSeconds));
-        names.forEach(name -> rows.add(generateStatisticsForRow(name, allSamples.stream().filter(s -> s.getOperationName().equals(name)).collect(toList()), durationInSeconds)));
+        rows.add(generateStatisticsForRow("All", statistics, duration));
+
+        operationNameCategories.getKeys().forEach(name ->
+                        rows.add(generateStatisticsForRow(name, operationNameCategories.get(name), duration))
+        );
+
         writeVariableAsFile(reportsDirectory, "statistics", rows.build());
     }
 
-    private JsonArrayBuilder generateStatisticsForRow(String title, List<Sample> samples, long durationInSeconds) {
+    private JsonArrayBuilder generateStatisticsForRow(String title, Statistics statistics, long duration) {
+        double percentile95 = interpolateList(95, statistics.getTimeDistribution().getValues());
+        double percentile99 = interpolateList(99, statistics.getTimeDistribution().getValues());
 
-
-        List<Long> timeDistribution = new ArrayList<>();
-        long totalTime = 0;
-        long totalCount = 0;
-        long good = 0;
-        long bad = 0;
-        long min = Long.MAX_VALUE;
-        long max = 0;
-        for (Sample sample : samples) {
-
-            totalCount++;
-            if (sample.isOk()) {
-                good++;
-            } else {
-                bad++;
-            }
-
-            long time = sample.getEnd() - sample.getStart();
-            timeDistribution.add(time);
-            if (time < min) {
-                min = time;
-            }
-            if (time > max) {
-                max = time;
-            }
-            totalTime += time;
-
-        }
-
-        long mean = totalTime / totalCount;
-        long sumOfSquares = 0;
-        for (Sample sample : samples) {
-            long time = sample.getEnd() - sample.getStart();
-            sumOfSquares += (time - mean) * (time - mean);
-        }
-        double standardDeviation = Math.sqrt(((float) sumOfSquares / totalCount));
-        double standardError = standardDeviation / Math.sqrt(totalCount);
-
-        sort(timeDistribution);
-        double percentile95 = interpolateList(95, timeDistribution);
-        double percentile99 = interpolateList(99, timeDistribution);
-
-        Map<Long, Long> summary = samples.stream().map(s -> s.getStart() / 1000).collect(groupingBy(o -> o, counting()));
-        double totalRequests = summary.values().stream().mapToDouble(a -> a).sum();
-
-        double requestsPerSecond = totalRequests/durationInSeconds;
+        double requestsPerSecond = statistics.getTotalCount().getValue() / duration;
 
         return builderFactory.createArrayBuilder()
                 .add(title)
-                .add(totalCount)
-                .add(good)
-                .add(bad)
-                .add(decimalFormat.format((float) bad / totalCount))
-                .add(min)
-                .add(max)
-                .add(mean)
-                .add((long) standardError)
-                .add((long) standardDeviation)
+                .add(statistics.getTotalCount().getValue())
+                .add(statistics.getGood().getValue())
+                .add(statistics.getBad().getValue())
+                .add(decimalFormat.format((float) statistics.getBad().getValue() / statistics.getTotalCount().getValue() * 100))
+                .add(statistics.getMin().getValue())
+                .add(statistics.getMax().getValue())
+                .add(statistics.getMean())
+                .add((long) statistics.getStandardError())
+                .add((long) statistics.getStandardDeviation())
                 .add(decimalFormat.format(percentile95))
                 .add(decimalFormat.format(percentile99))
                 .add(decimalFormat.format(requestsPerSecond));
     }
 
-    private void generateIndicatorData(File reportsDirectory, List<Sample> allSamples) throws Exception {
-
-        List<Long> allTimes = allSamples.stream().map(s -> s.getEnd() - s.getStart()).collect(toList());
+    private void generateIndicatorData(File reportsDirectory, CategoryGroup<Long, Scalar<Long>> indicatorCategories) throws Exception {
 
         writeVariableAsFile(reportsDirectory,
                 "indicatorData",
@@ -331,29 +276,28 @@ public class HtmlReporter implements Reporter {
                         .add(
                                 builderFactory.createArrayBuilder()
                                         .add("t < 800ms")
-                                        .add(allTimes.stream().filter(i -> i < 800).count())
+                                        .add(indicatorCategories.get(800L).getValue())
                         )
                         .add(
                                 builderFactory.createArrayBuilder()
                                         .add("800ms < t < 1200ms")
-                                        .add(allTimes.stream().filter(i -> i >= 800 && i < 1200).count())
+                                        .add(indicatorCategories.get(1200L).getValue())
                         )
                         .add(
                                 builderFactory.createArrayBuilder()
                                         .add("1200ms < t")
-                                        .add(allTimes.stream().filter(i -> i >= 1200).count())
-
+                                        .add(indicatorCategories.get(Long.MAX_VALUE).getValue())
                         )
                         .build()
         );
     }
 
-    private void generateRequestTypesData(File reportsDirectory, List<Sample> allSamples, List<String> names) throws Exception {
+    private void generateRequestTypesData(File reportsDirectory, CategoryGroup<String, Statistics> operationNameCategories) throws Exception {
         JsonArrayBuilder data = builderFactory.createArrayBuilder();
-        names.forEach(name ->
+        operationNameCategories.getKeys().forEach(name ->
                 data.add(builderFactory.createObjectBuilder()
                                 .add("name", name)
-                                .add("y", allSamples.stream().filter(s -> s.getOperationName().equals(name)).count())
+                                .add("y", operationNameCategories.get(name).getTotalCount().getValue())
                 ));
 
         writeVariableAsFile(
@@ -368,7 +312,7 @@ public class HtmlReporter implements Reporter {
             InputStream is = HtmlReporter.class.getResourceAsStream("/template/" + fileName);
             copy(is, Paths.get(format("%s/%s", baseDirectory.getAbsolutePath(), fileName)));
         } catch (IOException e) {
-            throw new RuntimeException("io error copying file " + fileName,e);
+            throw new RuntimeException("io error copying file " + fileName, e);
         }
     }
 

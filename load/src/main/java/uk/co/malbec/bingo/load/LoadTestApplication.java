@@ -4,6 +4,7 @@ package uk.co.malbec.bingo.load;
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoDatabase;
 import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
+import org.joda.time.DateTime;
 import uk.co.malbec.bingo.present.request.*;
 import uk.co.malbec.bingo.present.response.PlayResponse;
 import uk.co.malbec.bingo.present.response.PollMessageResponse;
@@ -34,17 +35,10 @@ import static org.joda.time.DateTime.now;
 
 public class LoadTestApplication {
 
-    //TODO
-    //add configurable parameters (thresholds etc)
-    //add configurable replacement for session object
-
     private static Random randomGenerator = new Random();
 
     public enum BingoOperationType implements OperationType {
         REGISTER, LOGIN, TOP_UP, ENTER_LOBBY, JOIN_PLAY, POLL_STATE, ANTE_IN, POLL_CHAT_MESSAGES, SEND_CHAT_MESSAGE
-    }
-
-    public static class ListPlayResponse extends GenericType<List<PlayResponse>> {
     }
 
     public static void main(String[] args) throws IOException {
@@ -55,8 +49,8 @@ public class LoadTestApplication {
 
         File reportsDirectory = new File(format("%s/reports/%s", System.getProperty("user.dir"), System.currentTimeMillis()));
 
-        Hound hound = new Hound()
-                .shutdownTime(now().plusMinutes(1));
+        Hound<BingoUser> hound = new Hound<BingoUser>()
+                .shutdownTime(now().plusMinutes(300));
 
         hound.configureSampler(HybridSampler.class)
                 .setSampleDirectory(new File(reportsDirectory, "data"));
@@ -77,8 +71,7 @@ public class LoadTestApplication {
             WebTarget target = client.target("http://localhost:8080");
 
             hound
-                    .createUser()
-                    .addToSession("index", i)
+                    .createUser(new BingoUser(i))
                     .registerSupplier(BingoServer.class, () -> new BingoServer(target))
                     .start("user" + i, new Transition(BingoOperationType.REGISTER, now()));
         });
@@ -90,38 +83,38 @@ public class LoadTestApplication {
     }
 
 
-    private static void configureOperations(Hound hound) {
+    private static void configureOperations(Hound<BingoUser> hound) {
         hound
                 .register(BingoOperationType.REGISTER, BingoServer.class, (bingo, context) -> {
-                    Integer index = (Integer) context.getSession().get("index");
 
-                    bingo.post(
-                            "register",
-                            new RegisterRequest("user@me.com", "username" + index, "password" + index, "1234567812345678", "Visa", "08/19", "111"),
-                            204,
-                            "registration request failed"
-                    );
+                    bingo.post()
+                            .path("register")
+                            .requestBody(new RegisterRequest("user@me.com", "username" + context.getSession().getIndex(), "password" + context.getSession().getIndex(), "1234567812345678", "Visa", "08/19", "111"))
+                            .expectedResponseCode(204)
+                            .errorMessageOnFailure("registration request failed")
+                            .execute();
 
                     context.schedule(new Transition(BingoOperationType.ENTER_LOBBY, now()));
                 })
                 .register(BingoOperationType.LOGIN, BingoServer.class, (bingo, context) -> {
 
-                    bingo.post(
-                            "login",
-                            new LoginRequest("robin", "lizard")
-                            , 204, "login request failed"
-                    );
+                    bingo.post()
+                            .path("login")
+                            .requestBody(new LoginRequest("robin", "lizard"))
+                            .expectedResponseCode(204)
+                            .errorMessageOnFailure("login request failed")
+                            .execute();
 
                     context.schedule(new Transition(BingoOperationType.ENTER_LOBBY, now()));
                 })
                 .register(BingoOperationType.ENTER_LOBBY, BingoServer.class, (bingo, context) -> {
 
-                    List<PlayResponse> plays = bingo.get(
-                            "lobby",
-                            200,
-                            "enter lobby request failed"
-                    ).readEntity(new ListPlayResponse());
-
+                    List<PlayResponse> plays = bingo.get()
+                            .path("lobby")
+                            .expectedResponseCode(200)
+                            .errorMessageOnFailure("enter lobby request failed")
+                            .execute()
+                            .readEntity(new ListPlayResponse());
 
                     List<PlayResponse> availableGames = plays
                             .stream()
@@ -133,64 +126,62 @@ public class LoadTestApplication {
                         return;
                     }
 
-                    context.getSession().put("game", availableGames.get(randomGenerator.nextInt(availableGames.size())));
+                    context.getSession().setPlay(availableGames.get(randomGenerator.nextInt(availableGames.size())));
                     context.schedule(new Transition(BingoOperationType.TOP_UP, now().plusSeconds(3)));
                 })
                 .register(BingoOperationType.TOP_UP, BingoServer.class, (bingo, context) -> {
 
-                    bingo.post(
-                            "topup",
-                            new TopupRequest("50"),
-                            204,
-                            "topup request failed"
-                    );
+                    bingo.post()
+                            .path("topup")
+                            .requestBody(new TopupRequest("50"))
+                            .expectedResponseCode(204)
+                            .errorMessageOnFailure("topup request failed")
+                            .execute();
 
                     context.schedule(new Transition(BingoOperationType.JOIN_PLAY, now()));
                 })
                 .register(BingoOperationType.JOIN_PLAY, BingoServer.class, (bingo, context) -> {
-                    PlayResponse play = (PlayResponse) context.getSession().get("game");
-                    context.trace("joining game " + play.getGame().getTitle());
 
-                    bingo.post(
-                            "play",
-                            play.getGame().getId().toString(),
-                            204,
-                            "join game request failed"
-                    );
+                    context.trace("joining play " + context.getSession().getPlay().getGame().getTitle());
+
+                    bingo.post()
+                            .path("play")
+                            .requestBody(context.getSession().getPlay().getGame().getId().toString())
+                            .expectedResponseCode(204)
+                            .errorMessageOnFailure("join play request failed")
+                            .execute();
 
                     context.schedule(new Transition(BingoOperationType.POLL_STATE, now().plusSeconds(1)));
                     context.schedule(new Transition(BingoOperationType.POLL_CHAT_MESSAGES, now().plusSeconds(randomGenerator.nextInt(40))));
                 })
                 .register(BingoOperationType.POLL_STATE, BingoServer.class, (bingo, context) -> {
-                    PlayResponse play = (PlayResponse) context.getSession().get("game");
 
-                    PollStateResponse pollStateResponse = bingo.get(
-                            "play",
-                            "gameId",
-                            play.getGame().getId().toString(),
-                            200,
-                            "poll request failed"
-                    ).readEntity(PollStateResponse.class);
+                    PollStateResponse pollStateResponse = bingo.get()
+                            .path("play")
+                            .queryParam("gameId", context.getSession().getPlay().getGame().getId().toString())
+                            .expectedResponseCode(200)
+                            .errorMessageOnFailure("poll request failed")
+                            .execute()
+                            .readEntity(PollStateResponse.class);
 
-                    //test for the start of a new game
-                    if (!pollStateResponse.getStartTime().equals(context.getSession().get("startTime"))) {
-                        context.getSession().put("startTime", pollStateResponse.getStartTime());
+                    //test for the start of a new play
+                    if (!pollStateResponse.getStartTime().equals(context.getSession().getStartTime())) {
+                        context.getSession().setStartTime(pollStateResponse.getStartTime());
 
                         long wait = randomGenerator.nextLong() % Math.max(pollStateResponse.getStartTime().getMillis() - 30000 - now().getMillis(), 1);
                         context.schedule(new Transition(BingoOperationType.ANTE_IN, now().plusMillis((int) wait)));
 
-                        context.trace("game starts at " + pollStateResponse.getStartTime());
+                        context.trace("play starts at " + pollStateResponse.getStartTime());
                     }
 
                     if (pollStateResponse.getEndTime() == null) {
                         context.schedule(new Transition(BingoOperationType.POLL_STATE, now().plusSeconds(1)));
                     } else {
-                        context.trace("game start... and it ends at " + pollStateResponse.getEndTime());
+                        context.trace("play start... and it ends at " + pollStateResponse.getEndTime());
                         context.schedule(new Transition(BingoOperationType.POLL_STATE, now().plusMillis((int) Math.max(pollStateResponse.getEndTime().getMillis() - now().getMillis() + 10000, 0))));
                     }
                 })
                 .register(BingoOperationType.ANTE_IN, BingoServer.class, (bingo, context) -> {
-                    PlayResponse play = (PlayResponse) context.getSession().get("game");
 
                     Map<Integer, Map<String, Boolean>> tickets = new HashMap<Integer, Map<String, Boolean>>() {{
                         put(1, new HashMap<String, Boolean>() {{
@@ -213,55 +204,98 @@ public class LoadTestApplication {
                         }});
                     }};
 
-                    bingo.post(
-                            "play/ante-in",
-                            new AnteInRequest(play.getGame().getId(), tickets),
-                            200,
-                            "ante-in request failed"
-                    );
+                    bingo.post()
+                            .path("play/ante-in")
+                            .requestBody(new AnteInRequest(context.getSession().getPlay().getGame().getId(), tickets))
+                            .expectedResponseCode(200)
+                            .errorMessageOnFailure("ante-in request failed")
+                            .execute();
                 })
                 .register(BingoOperationType.POLL_CHAT_MESSAGES, BingoServer.class, (bingo, context) -> {
-                    PlayResponse play = (PlayResponse) context.getSession().get("game");
 
-                    Integer messageIndex = (Integer) context.getSession().get("messageIndex");
-                    if (messageIndex == null) {
-                        messageIndex = 0;
-                        context.getSession().put("messageIndex", 0);
+                    if (context.getSession().getMessageIndex() == null) {
+                        context.getSession().setMessageIndex(0);
                         context.schedule(new Transition(BingoOperationType.SEND_CHAT_MESSAGE, now().plusSeconds(randomGenerator.nextInt(10) + 10)));
                     }
 
-                    PollMessagesResponse response = bingo.post(
-                            "poll-messages",
-                            new PollMessagesRequest(messageIndex, play.getGame().getTitle()),
-                            200,
-                            "poll-messages request failed"
-                    ).readEntity(PollMessagesResponse.class);
+                    PollMessagesResponse response = bingo.post()
+                            .path("poll-messages")
+                            .requestBody(new PollMessagesRequest(context.getSession().getMessageIndex(), context.getSession().getPlay().getGame().getTitle()))
+                            .expectedResponseCode(200)
+                            .errorMessageOnFailure("poll-messages request failed")
+                            .execute()
+                            .readEntity(PollMessagesResponse.class);
 
                     response.getMessages()
                             .stream()
                             .map(PollMessageResponse::getMessageIndex)
                             .max(Comparator.naturalOrder())
-                            .ifPresent(i -> context.getSession().put("messageIndex", i));
+                            .ifPresent(i -> context.getSession().setMessageIndex(i));
 
                     context.schedule(new Transition(BingoOperationType.POLL_CHAT_MESSAGES, now().plusMillis(500)));
                 })
                 .register(BingoOperationType.SEND_CHAT_MESSAGE, BingoServer.class, (bingo, context) -> {
-                    PlayResponse play = (PlayResponse) context.getSession().get("game");
 
-                    String chatRoom = play.getGame().getTitle();
-                    String username = "user" + context.getSession().get("index");
-                    String message = "message " + context.getSession().get("messageIndex");
-                    context.trace("message index " + context.getSession().get("messageIndex"));
+                    String chatRoom = context.getSession().getPlay().getGame().getTitle();
+                    String username = "user" + context.getSession().getIndex();
+                    String message = "message " + context.getSession().getMessageIndex();
+                    context.trace("message index " + context.getSession().getMessageIndex());
 
-                    bingo.post(
-                            "send-message",
-                            new SendMessageRequest(chatRoom, username, message),
-                            204,
-                            "send-message request failed"
-                    );
+                    bingo.post()
+                            .path("send-message")
+                            .requestBody(new SendMessageRequest(chatRoom, username, message))
+                            .expectedResponseCode(204)
+                            .errorMessageOnFailure("send-message request failed")
+                            .execute();
 
                     context.schedule(new Transition(BingoOperationType.SEND_CHAT_MESSAGE, now().plusSeconds(randomGenerator.nextInt(10) + 10)));
                 });
+    }
+
+    public static class ListPlayResponse extends GenericType<List<PlayResponse>> {
+    }
+
+    public static class BingoUser {
+
+        private int index;
+
+        private PlayResponse play;
+
+        private DateTime startTime;
+
+        private Integer messageIndex;
+
+        public BingoUser(int index) {
+            this.index = index;
+        }
+
+        public int getIndex() {
+            return index;
+        }
+
+        public PlayResponse getPlay() {
+            return play;
+        }
+
+        public void setPlay(PlayResponse play) {
+            this.play = play;
+        }
+
+        public DateTime getStartTime() {
+            return startTime;
+        }
+
+        public void setStartTime(DateTime startTime) {
+            this.startTime = startTime;
+        }
+
+        public Integer getMessageIndex() {
+            return messageIndex;
+        }
+
+        public void setMessageIndex(Integer messageIndex) {
+            this.messageIndex = messageIndex;
+        }
     }
 
     public static class BingoServer {
@@ -271,19 +305,15 @@ public class LoadTestApplication {
             this.target = target;
         }
 
-        public Response post(String path, Object request, int responseCode, String errorMessage) {
-            return execute(responseCode, errorMessage, target -> target.path(path).request().post(entity(request, "application/json")));
+        public BingoPost post() {
+            return new BingoPost(target);
         }
 
-        public Response get(String path, int responseCode, String errorMessage) {
-            return execute(responseCode, errorMessage, target -> target.path(path).request().get());
+        public BingoGet get() {
+            return new BingoGet(target);
         }
 
-        public Response get(String path, String name, String value, int responseCode, String errorMessage) {
-            return execute(responseCode, errorMessage, target -> target.path(path).queryParam(name, value).request().get());
-        }
-
-        private Response execute(int responseCode, String errorMessage, Function<WebTarget, Response> function) {
+        private static Response executeTarget(WebTarget target, int responseCode, String errorMessage, Function<WebTarget, Response> function) {
 
             try {
                 Response response = function.apply(target);
@@ -291,9 +321,7 @@ public class LoadTestApplication {
                     StringBuilder buffer = new StringBuilder();
                     buffer.append(format("Status code expected should be %s but was %s\n", responseCode, response.getStatus()));
                     buffer.append(format("HTTP %s\n", response.getStatus()));
-                    response.getHeaders().forEach((name, value) -> {
-                        buffer.append(format("%s: %s\n", name, value));
-                    });
+                    response.getHeaders().forEach((name, value) -> buffer.append(format("%s: %s\n", name, value)));
                     buffer.append("\n");
                     String body = response.readEntity(String.class);
                     if (body != null) {
@@ -305,6 +333,77 @@ public class LoadTestApplication {
                 return response;
             } catch (ProcessingException e) {
                 throw new OperationException(errorMessage, e.getLocalizedMessage());
+            }
+        }
+
+        private static class BingoPost extends BingoOperation<BingoPost> {
+
+            private Object request;
+
+            public BingoPost(WebTarget target) {
+                super(target);
+            }
+
+            public BingoPost requestBody(Object request) {
+                this.request = request;
+                return this;
+            }
+
+            public Response execute() {
+                return executeTarget(target, responseCode, errorMessage, target -> target.path(path).request().post(entity(request, "application/json")));
+            }
+        }
+
+        private static class BingoGet extends BingoOperation<BingoGet> {
+
+            private Map<String, String> queryParams = new HashMap<>();
+
+            public BingoGet(WebTarget target) {
+                super(target);
+            }
+
+            public BingoGet queryParam(String name, String value) {
+                queryParams.put(name, value);
+                return this;
+            }
+
+            public Response execute() {
+                return executeTarget(target, responseCode, errorMessage, target -> {
+                    target = target.path(path);
+                    for (String name: queryParams.keySet()){
+                        target = target.queryParam(name, queryParams.get(name));
+                    }
+                    return target.request().get();
+                });
+            }
+        }
+
+        private static abstract class BingoOperation<T extends BingoOperation> {
+            protected WebTarget target;
+            protected String path = "";
+            protected int responseCode = 200;
+            protected String errorMessage = "request failed";
+            private T self;
+
+            @SuppressWarnings("unchecked")
+            public BingoOperation(WebTarget target) {
+                this.target = target;
+                this.self = (T) this;
+            }
+
+            public T path(String path) {
+                this.path = path;
+                return self;
+            }
+
+            public T expectedResponseCode(int responseCode) {
+                this.responseCode = responseCode;
+                return self;
+            }
+
+            public T errorMessageOnFailure(String errorMessage) {
+                this.errorMessage = errorMessage;
+                return self;
             }
         }
     }
