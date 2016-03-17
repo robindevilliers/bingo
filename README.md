@@ -47,13 +47,13 @@ So anyway, it goes without saying that I have managed it.  (Or else I would hard
 
 And along the way, I wrote my own performance testing tool called Hound.  You can download the report here.
 
-[Results](./report.tar.gz)   - If you extract this to disk and click on the index.html file within, it should work.  Its well worth it as the graphs are interactive.
+[Results](./report.tar.gz)   
+
+If you extract this tar file to disk and click on the index.html file within, it should work.  Its well worth it as the graphs are interactive.
 
 But if you don't have the energy (I don't really blame you) here is a screenshot.
 
-![screenshot report](screenshot_report.png)
-
-![test](./test.html)
+![screenshot report](./screenshot_hound.png)
 
  
  
