@@ -8,7 +8,7 @@ Anyway, the front-end is almost besides the point.  I wrote bingo in order to ha
 
 ### Concurrent User
 
-First lets be clear on what we mean by 'concurrent' user.  When a user loads a bingo client, that bingo client will attempt to maintain the illusion of realtime updates of the game state for the user. This means that it polls the server for updates every 200 milliseconds.  And there is a chat client built into this application which polls for updates every 500 milliseconds.  So for every user that has a client active, there are seven requests per second that occur in order to keep each client in a game room current.
+First lets be clear on what we mean by 'concurrent' user.  When a user loads a bingo client, that bingo client will attempt to maintain the illusion of realtime updates of the game state for the user. This means that it polls the server for updates every 200 milliseconds.  And there is a chat client built into this application which polls for updates every 500 milliseconds.  So for every user that has a client active, there are seven requests per second that occur in order to keep each client in a game room current.  However this changes a bit when the game actually starts; the polling is no longer necessary as no-one can place a bet, so the only thing that polls then is the chat pane.  So based on the performance report the number of requests per second for 1000 concurrent users ends up being something like 2400.
 
 So the activity level of these users is much greater than a user going to a popular online mobile phone store and buying a new phone and tariff.  There may be one interaction every 30 seconds in that case.
 
