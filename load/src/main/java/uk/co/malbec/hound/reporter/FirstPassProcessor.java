@@ -19,7 +19,7 @@ public class FirstPassProcessor implements Consumer<Sample> {
 
         this.firstPass = all(
                 (Consumer<Sample>) updateScalarIf(Sample::getStart, Machinery::lessThan, data.getEarliestStartTime()),
-                (Consumer<Sample>) updateScalarIf(Sample::getStart, Machinery::greaterThan, data.getEarliestStartTime()),
+                (Consumer<Sample>) updateScalarIf(Sample::getStart, Machinery::greaterThan, data.getLatestStartTime()),
                 (Consumer<Sample>) partitionBy(HtmlReporter::time, Machinery::lessThan, data.getIndicatorCategories(), count(reference(data.getIndicatorCategories()))),
                 (Consumer<Sample>) partitionBy(Sample::getOperationName, String::equals, data.getOperationNameCategories(), statisticsSet(data.getOperationNameCategories())),
                 (Consumer<Sample>) statisticsSet(referenceable(data.getStatistics())),

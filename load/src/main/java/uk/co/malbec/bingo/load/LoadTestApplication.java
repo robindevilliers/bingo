@@ -50,7 +50,7 @@ public class LoadTestApplication {
         File reportsDirectory = new File(format("%s/reports/%s", System.getProperty("user.dir"), System.currentTimeMillis()));
 
         Hound<BingoUser> hound = new Hound<BingoUser>()
-                .shutdownTime(now().plusMinutes(300));
+                .shutdownTime(now().plusMinutes(20));
 
         hound.configureSampler(HybridSampler.class)
                 .setSampleDirectory(new File(reportsDirectory, "data"));
@@ -79,7 +79,7 @@ public class LoadTestApplication {
 
         hound.waitFor();
 
-        new ProcessBuilder("chromium-browser", reportsDirectory.getAbsolutePath() + "/index.html").start();
+        new ProcessBuilder("google-chrome", reportsDirectory.getAbsolutePath() + "/index.html").start();
     }
 
 
