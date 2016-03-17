@@ -1,4 +1,4 @@
 # bingo
 
-[report](./report.tar.gz)
+![Screenshot](./screenshot.png)
 
