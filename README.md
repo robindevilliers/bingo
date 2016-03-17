@@ -1,8 +1,6 @@
 # bingo
 
-
-
-First, a disclaimer; I'm not a html designer.  I won't pretend that I'm any good at html design.  That's why in the screenshot below the font is all the same and the colors are pretty bland.  However I should be pretty good at writing web applications (not quite the same thing), and this was written using React.  
+First, a disclaimer; I'm not a html designer.  I won't pretend that I'm any good at html design.  That's why, in the screenshot below, the font is all the same and the colors are pretty bland.  However I should be pretty good at writing web applications (not quite the same thing), and this was written using React.  
 
 ![Screenshot](./screenshot.png)
 
@@ -27,6 +25,8 @@ If I every get around to it, I will add in a JMS message broker to create a 'cha
 
 So at this point, I should probably mention the environment specifics.
 
+|Item       | Details                                     |
+|-----------|---------------------------------------------|
 | Processor | Intel(R) Core(TM) i7-3770K CPU @ 3.50GHz    |
 | Memory    | 16GB                                        |
 | Disk      | 2 Vertex SSD drives in Raid 0 configuration |
