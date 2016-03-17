@@ -55,6 +55,9 @@ But if you don't have the energy (I don't really blame you) here is a screenshot
 
 ![screenshot report](./screenshot_hound.png)
 
+And again... The latter half is a little less interesting.
+
+![screenshot report2](./screenshot_hound2.png)
  
  
 
