@@ -66,7 +66,7 @@ public class LoadTestApplication {
 
         configureOperations(hound);
 
-        range(0, 1000).forEach(i -> {
+        range(0, 2000).forEach(i -> {
             Client client = new ResteasyClientBuilder().connectionPoolSize(2).build();
             WebTarget target = client.target("http://localhost:8080");
 
